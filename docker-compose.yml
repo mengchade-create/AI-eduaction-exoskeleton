@@ -1,6 +1,52 @@
 name: exokids
 
 services:
+  db:
+    # Phase 1 将切换到 timescale/timescaledb-ha 镜像
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-exokids}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-exokids}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exokids-net
+
+  minio:
+    image: minio/minio:latest
+    command:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -f http://localhost:9000/minio/health/live || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exokids-net
+
   api:
     image: python:3.11-slim
     working_dir: /app
@@ -8,15 +54,25 @@ services:
       - python
       - -c
       - "print('ExoKids API skeleton: Phase 0 placeholder')"
-    env_file:
-      - .env
-    volumes:
-      - ./apps/api:/app
+    environment:
+      ENV: ${ENV:-dev}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      LLM_API_KEY: ${LLM_API_KEY:-sk-placeholder}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY is required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY is required}
+      MINIO_BUCKET: ${MINIO_BUCKET:-exokids}
+      PI_SSH_KEY_PATH: ${PI_SSH_KEY_PATH:-/app/keys/id_ed25519}
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
       - exokids-net
-    depends_on:
-      - db
-      - minio
 
   web:
     image: node:20-alpine
@@ -25,43 +81,18 @@ services:
       - node
       - -e
       - "console.log('ExoKids web skeleton: Phase 0 placeholder')"
-    env_file:
-      - .env
-    volumes:
-      - ./apps/web:/app
-    ports:
-      - "5173:5173"
-    networks:
-      - exokids-net
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
+      VITE_WS_BASE: ${VITE_WS_BASE:-ws://localhost:8000}
     depends_on:
       - api
-
-  db:
-    image: timescale/timescaledb:latest-pg15
-    environment:
-      POSTGRES_DB: exokids
-      POSTGRES_USER: exokids
-      POSTGRES_PASSWORD: exokids
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks:
       - exokids-net
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    volumes:
-      - ./data/minio:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    networks:
-      - exokids-net
+volumes:
+  pg_data:
+  minio_data:
 
 networks:
   exokids-net:

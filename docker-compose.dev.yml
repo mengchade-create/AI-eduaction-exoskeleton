@@ -1,40 +1,22 @@
-name: exokids-dev
-
 services:
   api:
-    image: python:3.11-slim
-    working_dir: /app
     command:
       - python
       - -c
       - "print('ExoKids API dev skeleton: Phase 0 placeholder')"
-    env_file:
-      - .env
-    environment:
-      ENV: dev
     volumes:
       - ./apps/api:/app
-    networks:
-      - exokids-net
 
   web:
-    image: node:20-alpine
-    working_dir: /app
     command:
       - node
       - -e
       - "console.log('ExoKids web dev skeleton: Phase 0 placeholder')"
-    env_file:
-      - .env
     environment:
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
+      VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
+      VITE_WS_BASE: ${VITE_WS_BASE:-ws://localhost:8000}
     volumes:
       - ./apps/web:/app
     ports:
       - "5173:5173"
-    networks:
-      - exokids-net
-
-networks:
-  exokids-net:
-    name: exokids-net
