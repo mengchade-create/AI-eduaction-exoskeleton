@@ -1,8 +1,40 @@
+name: exokids-dev
+
 services:
   api:
+    image: python:3.11-slim
+    working_dir: /app
+    command:
+      - python
+      - -c
+      - "print('ExoKids API dev skeleton: Phase 0 placeholder')"
+    env_file:
+      - .env
     environment:
       ENV: dev
+    volumes:
+      - ./apps/api:/app
+    networks:
+      - exokids-net
 
   web:
+    image: node:20-alpine
+    working_dir: /app
+    command:
+      - node
+      - -e
+      - "console.log('ExoKids web dev skeleton: Phase 0 placeholder')"
+    env_file:
+      - .env
     environment:
       NODE_ENV: development
+    volumes:
+      - ./apps/web:/app
+    ports:
+      - "5173:5173"
+    networks:
+      - exokids-net
+
+networks:
+  exokids-net:
+    name: exokids-net
