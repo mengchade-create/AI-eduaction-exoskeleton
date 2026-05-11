@@ -4,7 +4,10 @@ services:
   api:
     image: python:3.11-slim
     working_dir: /app
-    command: python -c "print('ExoKids API skeleton: Phase 0 placeholder')"
+    command:
+      - python
+      - -c
+      - "print('ExoKids API skeleton: Phase 0 placeholder')"
     env_file:
       - .env
     volumes:
@@ -18,7 +21,10 @@ services:
   web:
     image: node:20-alpine
     working_dir: /app
-    command: node -e "console.log('ExoKids web skeleton: Phase 0 placeholder')"
+    command:
+      - node
+      - -e
+      - "console.log('ExoKids web skeleton: Phase 0 placeholder')"
     env_file:
       - .env
     volumes:
