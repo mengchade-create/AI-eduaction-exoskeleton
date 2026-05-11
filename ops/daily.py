@@ -447,7 +447,11 @@ def gh_available(dry_run: bool) -> bool:
     if dry_run:
         print(f"DRY-RUN: would run `{command_text(cmd)}`")
         return True
-    result = run(cmd)
+    try:
+        result = run(cmd)
+    except FileNotFoundError:
+        print("未找到 GitHub CLI `gh`，请先在本地安装并运行 `gh auth login`。跳过自动 merge 步骤。")
+        return False
     if result.returncode != 0:
         print("gh auth status 失败，请先在本地运行 `gh auth login`。跳过自动 merge 步骤。")
         print(result.stdout.strip())
