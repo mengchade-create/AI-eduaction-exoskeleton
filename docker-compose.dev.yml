@@ -1,0 +1,8 @@
+services:
+  api:
+    environment:
+      ENV: dev
+
+  web:
+    environment:
+      NODE_ENV: development
