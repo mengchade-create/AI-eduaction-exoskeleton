@@ -7,6 +7,7 @@ fresh workspaces before project dependencies are installed.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
@@ -31,6 +32,11 @@ SELF_TEST_SECTION = """---
 4. 沙盒内无法跑 docker 时，用等价方式验证（httpx ASGITransport / 单元测试 mock 等），贴证据
 5. 任何"无法验证"的声明必须给出替代验证路径
 """
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 
 @dataclass
@@ -68,6 +74,12 @@ def run(cmd: list[str], check: bool = False) -> subprocess.CompletedProcess[str]
         stderr=subprocess.STDOUT,
         check=check,
     )
+
+
+def command_text(cmd: list[str]) -> str:
+    """Render a shell command for dry-run output."""
+
+    return " ".join(cmd)
 
 
 def friendly_error(message: str) -> int:
@@ -166,6 +178,16 @@ def find_plan_for_pr(number: int) -> tuple[Path, list[PrBlock], PrBlock] | None:
         for block in blocks:
             if block.number == number:
                 return path, blocks, block
+    return None
+
+
+def find_plan_pr_for_branch(branch: str) -> PrBlock | None:
+    """Find a planned PR by branch name."""
+
+    for path in plan_docs():
+        for block in parse_plan(path):
+            if block.branch == branch:
+                return block
     return None
 
 
@@ -359,6 +381,251 @@ def ask(prompt: str, yes: bool, default: str = "") -> str:
     return input(prompt)
 
 
+def checks_state(rollup: object) -> str:
+    """Return passed/running/failed/unknown for a gh statusCheckRollup value."""
+
+    if not isinstance(rollup, list):
+        return "unknown"
+    if not rollup:
+        return "passed"
+    states: list[str] = []
+    conclusions: list[str] = []
+    for item in rollup:
+        if not isinstance(item, dict):
+            continue
+        state = str(item.get("status") or item.get("state") or "").upper()
+        conclusion = str(item.get("conclusion") or "").upper()
+        if state:
+            states.append(state)
+        if conclusion:
+            conclusions.append(conclusion)
+    if any(conclusion in {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED"} for conclusion in conclusions):
+        return "failed"
+    if any(state not in {"COMPLETED", "SUCCESS"} for state in states):
+        return "running"
+    if all(conclusion in {"", "SUCCESS", "SKIPPED", "NEUTRAL"} for conclusion in conclusions):
+        return "passed"
+    return "unknown"
+
+
+def checks_label(state: str) -> str:
+    """Format a compact checks label."""
+
+    labels = {
+        "passed": "✅ checks passed",
+        "running": "⏳ checks running",
+        "failed": "❌ checks failed",
+        "unknown": "❔ checks unknown",
+    }
+    return labels.get(state, labels["unknown"])
+
+
+def pr_mergeable(pr: dict[str, object]) -> bool:
+    """Return whether a gh PR payload is mergeable."""
+
+    return str(pr.get("mergeable") or "").upper() == "MERGEABLE"
+
+
+def print_pr_list(prs: list[dict[str, object]]) -> None:
+    """Print open PRs in the daily SOP format."""
+
+    if not prs:
+        print("没有找到我开的 open PR。")
+        return
+    for pr in prs:
+        number = pr.get("number")
+        branch = pr.get("headRefName") or ""
+        state = checks_state(pr.get("statusCheckRollup"))
+        mergeable = "mergeable" if pr_mergeable(pr) else f"not-mergeable({pr.get('mergeable')})"
+        print(f"#{number}  {branch}   {checks_label(state)}  {mergeable}")
+
+
+def gh_available(dry_run: bool) -> bool:
+    """Check GitHub CLI authentication."""
+
+    cmd = ["gh", "auth", "status"]
+    if dry_run:
+        print(f"DRY-RUN: would run `{command_text(cmd)}`")
+        return True
+    result = run(cmd)
+    if result.returncode != 0:
+        print("gh auth status 失败，请先在本地运行 `gh auth login`。跳过自动 merge 步骤。")
+        print(result.stdout.strip())
+        return False
+    return True
+
+
+def list_my_open_prs(dry_run: bool) -> list[dict[str, object]]:
+    """List open PRs authored by the current GitHub user."""
+
+    cmd = [
+        "gh",
+        "pr",
+        "list",
+        "--author",
+        "@me",
+        "--state",
+        "open",
+        "--json",
+        "number,title,headRefName,mergeable,statusCheckRollup",
+    ]
+    if dry_run:
+        print(f"DRY-RUN: would run `{command_text(cmd)}`")
+        return [
+            {
+                "number": 5,
+                "title": "API skeleton",
+                "headRefName": "feat/p0-api-skeleton",
+                "mergeable": "MERGEABLE",
+                "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "SUCCESS"}],
+            },
+            {
+                "number": 6,
+                "title": "DB schema",
+                "headRefName": "feat/p0-db-schema",
+                "mergeable": "MERGEABLE",
+                "statusCheckRollup": [{"status": "IN_PROGRESS"}],
+            },
+            {
+                "number": 7,
+                "title": "Typo",
+                "headRefName": "fix/typo",
+                "mergeable": "CONFLICTING",
+                "statusCheckRollup": [{"status": "COMPLETED", "conclusion": "FAILURE"}],
+            },
+        ]
+    result = run(cmd)
+    if result.returncode != 0:
+        print("gh pr list 失败，跳过自动 merge 步骤。")
+        print(result.stdout.strip())
+        return []
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        print("gh pr list 返回的 JSON 无法解析，跳过自动 merge 步骤。")
+        return []
+    return payload if isinstance(payload, list) else []
+
+
+def parse_merge_selection(selection: str, prs: list[dict[str, object]]) -> tuple[list[int], set[int]]:
+    """Parse merge selection input into normal and forced PR numbers."""
+
+    selected: list[int] = []
+    forced: set[int] = set()
+    if not selection.strip():
+        return selected, forced
+    if selection.strip().lower() == "all":
+        for pr in prs:
+            number = int(pr["number"])
+            if pr_mergeable(pr) and checks_state(pr.get("statusCheckRollup")) == "passed":
+                selected.append(number)
+        return selected, forced
+    for item in re.split(r"\s*,\s*", selection.strip()):
+        if not item:
+            continue
+        force_match = re.fullmatch(r"force:(\d+)", item, flags=re.IGNORECASE)
+        if force_match:
+            number = int(force_match.group(1))
+            selected.append(number)
+            forced.add(number)
+            continue
+        selected.append(int(item))
+    return selected, forced
+
+
+def gh_checks_passed(number: int, dry_run: bool) -> bool:
+    """Confirm PR checks pass using `gh pr checks`."""
+
+    cmd = ["gh", "pr", "checks", str(number)]
+    if dry_run:
+        print(f"DRY-RUN: would run `{command_text(cmd)}`")
+        return True
+    result = run(cmd)
+    if result.returncode != 0:
+        print(f"PR #{number} checks 未通过或仍在运行，跳过。")
+        print(result.stdout.strip())
+        return False
+    return True
+
+
+def merge_pr(number: int, dry_run: bool) -> bool:
+    """Squash merge a PR and delete its branch."""
+
+    cmd = ["gh", "pr", "merge", str(number), "--squash", "--delete-branch"]
+    if dry_run:
+        print(f"DRY-RUN: would run `{command_text(cmd)}`")
+        return True
+    result = run(cmd)
+    if result.returncode != 0:
+        print(f"PR #{number} merge 失败，继续下一项。")
+        print(result.stdout.strip())
+        return False
+    print(result.stdout.strip())
+    return True
+
+
+def sync_main(dry_run: bool) -> None:
+    """Sync local main after successful merges."""
+
+    for cmd in (["git", "checkout", "main"], ["git", "pull", "--ff-only"], ["git", "fetch", "-p"]):
+        if dry_run:
+            print(f"DRY-RUN: would run `{command_text(cmd)}`")
+        else:
+            result = run(cmd)
+            print(result.stdout.strip())
+
+
+def auto_merge_prs(args: argparse.Namespace) -> list[int]:
+    """Interactively merge open PRs and return successfully merged numbers."""
+
+    print("自动 merge 检查:")
+    if not gh_available(args.dry_run):
+        return []
+    prs = list_my_open_prs(args.dry_run)
+    print_pr_list(prs)
+    if not prs:
+        return []
+
+    selection = ask(
+        "要合并哪些 PR？（编号逗号分隔，all = 全部 mergeable 的，回车跳过）",
+        args.yes or args.dry_run,
+        "",
+    ).strip()
+    selected, forced = parse_merge_selection(selection, prs)
+    if not selected:
+        print("跳过自动 merge。")
+        return []
+
+    by_number = {int(pr["number"]): pr for pr in prs if "number" in pr}
+    merged: list[int] = []
+    for number in selected:
+        pr = by_number.get(number)
+        if pr is None:
+            print(f"PR #{number} 不在 open PR 列表中，跳过。")
+            continue
+        if not pr_mergeable(pr):
+            print(f"PR #{number} mergeable={pr.get('mergeable')}，跳过。")
+            continue
+        state = checks_state(pr.get("statusCheckRollup"))
+        if state != "passed" and number not in forced:
+            print(f"PR #{number} checks 状态为 {state}，如需强合请显式输入 force:{number}。跳过。")
+            continue
+        if number not in forced and not gh_checks_passed(number, args.dry_run):
+            continue
+        if number in forced:
+            print(f"PR #{number} 使用 force 选择，跳过 checks 阻断。")
+        if merge_pr(number, args.dry_run):
+            branch = str(pr.get("headRefName") or "")
+            planned = find_plan_pr_for_branch(branch)
+            if planned is None:
+                print(f"PR #{number} 分支 {branch} 未匹配到 Phase 计划，跳过自动 mark-done。")
+            else:
+                merged.append(planned.number)
+    if merged:
+        sync_main(args.dry_run)
+    return merged
+
+
 def cmd_start(_: argparse.Namespace) -> int:
     """Print the current start-of-day context."""
 
@@ -387,10 +654,17 @@ def cmd_end(args: argparse.Namespace) -> int:
     """Handle end-of-day workflow."""
 
     check_worktree()
-    merged = ask("今天合并了哪些 PR？（输入编号，逗号分隔，回车跳过）", args.yes, "")
-    if merged.strip():
-        for item in re.split(r"\s*,\s*", merged.strip()):
+    auto_merged = auto_merge_prs(args)
+    merged_items: list[str] = [str(number) for number in auto_merged]
+    if not merged_items:
+        merged = ask("今天合并了哪些 PR？（输入编号，逗号分隔，回车跳过）", args.yes or args.dry_run, "")
+        merged_items = [item for item in re.split(r"\s*,\s*", merged.strip()) if item]
+    if merged_items:
+        for item in merged_items:
             if item:
+                if args.dry_run:
+                    print(f"DRY-RUN: would mark PR{int(item)} as done")
+                    continue
                 ok, message = mark_done(int(item))
                 print(message)
                 if not ok:
@@ -410,22 +684,36 @@ def cmd_end(args: argparse.Namespace) -> int:
                 "Y",
             ).strip()
             if reply in {"", "Y", "y"}:
-                print(draft_next(block.number, True)[1])
+                if args.dry_run:
+                    print(f"DRY-RUN: would generate NEXT.md for {block.label}: {block.title}")
+                else:
+                    print(draft_next(block.number, True)[1])
             elif reply in {"N", "n"}:
                 print("跳过 NEXT.md 生成。")
             else:
-                print(draft_next(block.number, True, reply)[1])
+                if args.dry_run:
+                    print(f"DRY-RUN: would generate NEXT.md for {block.label} with note: {reply}")
+                else:
+                    print(draft_next(block.number, True, reply)[1])
     elif phase_doc is not None:
         print("ALL_DONE=true，该规划下一个 Phase。")
 
-    summary = ask("今天做了什么？一句话总结", args.yes, "")
+    summary = ask("今天做了什么？一句话总结", args.yes or args.dry_run, "")
     if summary.strip():
-        stamp = datetime.now().astimezone().isoformat(timespec="seconds")
-        with TODAY.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(f"- {stamp} {summary.strip()}\n")
+        if args.dry_run:
+            print(f"DRY-RUN: would append TODAY.md summary: {summary.strip()}")
+        else:
+            stamp = datetime.now().astimezone().isoformat(timespec="seconds")
+            with TODAY.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(f"- {stamp} {summary.strip()}\n")
 
-    should_commit = ask('是否执行 git add -A && git commit -m "docs: daily log" && git push？[Y/n]', args.yes, "Y")
+    should_commit = ask('是否执行 git add -A && git commit -m "docs: daily log" && git push？[Y/n]', args.yes or args.dry_run, "Y")
     if should_commit.strip() in {"", "Y", "y"}:
+        if args.dry_run:
+            print('DRY-RUN: would run `git add -A`')
+            print('DRY-RUN: would run `git commit -m "docs: daily log"` if staged changes exist')
+            print("DRY-RUN: would run `git push`")
+            return 0
         run(["git", "add", "-A"])
         diff = run(["git", "diff", "--cached", "--quiet"])
         if diff.returncode == 0:
@@ -466,6 +754,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     end = sub.add_parser("end")
     end.add_argument("--yes", action="store_true")
+    end.add_argument("--dry-run", action="store_true")
     end.set_defaults(func=cmd_end)
     return parser
 
