@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     database_url: str = Field(validation_alias="DATABASE_URL")
-    jwt_secret: str = Field(validation_alias="JWT_SECRET")
+    jwt_secret: str = Field(validation_alias="SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
     jwt_expire_minutes: int = Field(default=10080, validation_alias="JWT_EXPIRE_MINUTES")
     cors_origins: list[str] = Field(default_factory=lambda: ["*"], validation_alias="CORS_ORIGINS")
