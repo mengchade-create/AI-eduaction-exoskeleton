@@ -1,22 +1,11 @@
 """FastAPI application entrypoint."""
 
-from __future__ import annotations
-
-from importlib.metadata import PackageNotFoundError, version
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app._version import get_app_version
 from app.config import get_settings
-
-
-def get_app_version() -> str:
-    """Return package version, falling back when the package is not installed."""
-
-    try:
-        return version("exokids-api")
-    except PackageNotFoundError:
-        return "0.0.0+unknown"
+from app.routers import health
 
 
 settings = get_settings()
@@ -29,3 +18,4 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(health.router)
