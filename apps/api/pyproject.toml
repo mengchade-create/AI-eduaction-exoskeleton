@@ -13,6 +13,7 @@ dependencies = [
   "fastapi>=0.110",
   "pydantic-settings>=2.0",
   "psycopg[binary]>=3.2.0",
+  "pyjwt>=2.8",
   "sqlmodel>=0.0.22",
   "uvicorn[standard]>=0.27",
 ]

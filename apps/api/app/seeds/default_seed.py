@@ -8,20 +8,14 @@ from __future__ import annotations
 
 import os
 
-import bcrypt
 from sqlmodel import Session, select
 
 from app.db.session import engine
 from app.models import Assignment, Class, ClassMember, Device, User
+from app.security import hash_password
 
 
 DEFAULT_PASSWORD = os.getenv("EXOKIDS_SEED_PASSWORD", "change-me-please-seed-password")
-
-
-def hash_password(password: str) -> str:
-    """Return a bcrypt hash for a seed password."""
-
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def get_or_create_user(
