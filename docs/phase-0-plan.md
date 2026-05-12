@@ -3,6 +3,7 @@
 ## PR1: Monorepo 骨架与 docker compose
 **状态**: done
 **分支**: feat/p0-monorepo-skeleton
+**说明**: PR1 通过直推方式落地于 main（历史原因），自 PR2 起走标准 PR 流程
 **目标**: 建立 ExoKids 单仓库骨架、基础 compose 和共享类型包。
 **交付物**:
 - README.md — 项目入口说明

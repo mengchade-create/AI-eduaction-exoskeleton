@@ -4,7 +4,7 @@
 
 Codex 自动执行：
 1. python ops/daily.py start
-2. 从 main 拉 NEXT.md 指定的分支
+2. 从默认分支拉 NEXT.md 指定的分支
 3. 贴 git log --oneline -3 证明起点干净
 4. 按 NEXT.md 开始干活
 

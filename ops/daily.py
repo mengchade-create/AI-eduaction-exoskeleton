@@ -568,10 +568,36 @@ def merge_pr(number: int, dry_run: bool) -> bool:
     return True
 
 
-def sync_main(dry_run: bool) -> None:
-    """Sync local main after successful merges."""
+def default_branch() -> str:
+    """Detect the repository default branch.
 
-    for cmd in (["git", "checkout", "main"], ["git", "pull", "--ff-only"], ["git", "fetch", "-p"]):
+    Priority:
+    1. GitHub repository metadata via gh.
+    2. origin/HEAD symbolic ref.
+    3. main fallback.
+    """
+
+    try:
+        result = run(["gh", "repo", "view", "--json", "defaultBranchRef", "-q", ".defaultBranchRef.name"])
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except FileNotFoundError:
+        pass
+
+    result = run(["git", "symbolic-ref", "refs/remotes/origin/HEAD"])
+    if result.returncode == 0 and result.stdout.strip():
+        ref = result.stdout.strip()
+        prefix = "refs/remotes/origin/"
+        if ref.startswith(prefix):
+            return ref.removeprefix(prefix)
+    return "main"
+
+
+def sync_default_branch(dry_run: bool) -> None:
+    """Sync the local default branch after successful merges."""
+
+    branch = default_branch()
+    for cmd in (["git", "checkout", branch], ["git", "pull", "--ff-only"], ["git", "fetch", "-p"]):
         if dry_run:
             print(f"DRY-RUN: would run `{command_text(cmd)}`")
         else:
@@ -626,7 +652,7 @@ def auto_merge_prs(args: argparse.Namespace) -> list[int]:
             else:
                 merged.append(planned.number)
     if merged:
-        sync_main(args.dry_run)
+        sync_default_branch(args.dry_run)
     return merged
 
 
