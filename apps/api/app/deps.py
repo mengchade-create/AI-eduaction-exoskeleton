@@ -13,7 +13,7 @@ from app.models import User
 from app.security import decode_access_token
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=True)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=True)
 
 
 def get_db() -> Iterator[Session]:

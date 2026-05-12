@@ -15,13 +15,13 @@
 | 变量 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `DATABASE_URL` | 是 | 无 | 数据库连接，例如 `postgresql+psycopg://user:pass@localhost:5432/exokids` 或 `sqlite:///./dev.db` |
-| `JWT_SECRET` | 是 | 无 | JWT 签名密钥，生产环境务必使用强随机值 |
+| `SECRET_KEY` | 是 | 无 | JWT 签名密钥，生产环境务必使用强随机值 |
 | `JWT_ALGORITHM` | 否 | `HS256` | JWT 签名算法 |
 | `JWT_EXPIRE_MINUTES` | 否 | `10080` | JWT 过期时间，默认 7 天 |
 | `CORS_ORIGINS` | 否 | `*` | CORS 来源，多个值用逗号分隔 |
 | `EXOKIDS_SEED_PASSWORD` | 否 | 开发占位符 | seed 默认用户密码；不设置时仅适用于 dev |
 
-生成生产用 `JWT_SECRET` 示例：
+生成生产用 `SECRET_KEY` 示例：
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(32))"
@@ -83,7 +83,7 @@ curl http://localhost:8000/health/db
 登录获取 token。下面的 `admin` / `pw123` 仅为 seed 默认用户示例，以实际 seed 配置为准：
 
 ```bash
-curl -X POST http://localhost:8000/auth/login \
+curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"pw123"}'
 ```
@@ -107,7 +107,7 @@ curl -X POST http://localhost:8000/auth/login \
 带 token 访问当前用户信息：
 
 ```bash
-curl http://localhost:8000/auth/me \
+curl http://localhost:8000/api/auth/me \
   -H "Authorization: Bearer <token>"
 ```
 

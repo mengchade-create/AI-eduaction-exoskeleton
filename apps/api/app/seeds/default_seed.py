@@ -139,15 +139,25 @@ def seed(session: Session) -> None:
         display_name="老师一号",
         avatar="teacher",
     )
-    student = get_or_create_user(
-        session,
-        username="xingxing",
-        role="student",
-        display_name="星星同学",
-        avatar="star",
-    )
+    students = [
+        get_or_create_user(
+            session,
+            username=username,
+            role="student",
+            display_name=display_name,
+            avatar=avatar,
+        )
+        for username, display_name, avatar in [
+            ("xingxing", "星星同学", "avatar_01"),
+            ("yueyue", "月月同学", "avatar_02"),
+            ("yangyang", "阳阳同学", "avatar_03"),
+            ("xiaoyu", "小雨同学", "avatar_04"),
+            ("leilei", "乐乐同学", "avatar_05"),
+        ]
+    ]
     classroom = get_or_create_class(session, name="外骨骼启蒙班", teacher=teacher)
-    ensure_class_member(session, classroom=classroom, student=student)
+    for student in students:
+        ensure_class_member(session, classroom=classroom, student=student)
     get_or_create_assignment(session, classroom=classroom)
     get_or_create_device(session)
     session.commit()
@@ -155,7 +165,7 @@ def seed(session: Session) -> None:
     print("Seed complete:")
     print(f"- admin: {admin.username}")
     print(f"- teacher: {teacher.username}")
-    print(f"- student: {student.username}")
+    print(f"- students: {', '.join(student.username for student in students)}")
     print(f"- default password source: EXOKIDS_SEED_PASSWORD or development placeholder")
 
 

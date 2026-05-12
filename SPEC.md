@@ -1225,4 +1225,5 @@ VITE_WS_BASE=ws://localhost:8000
 
 | 日期 | 版本 | 说明 |
 |---|---|---|
+| 2026-05-12 | 0.2 | 持久化方式从 bind mount 改为 named volumes（跨平台兼容性 + 生产部署可靠性）；JWT 环境变量名从 JWT_SECRET 统一为 SECRET_KEY |
 | 2026-05-11 | 0.1 | 初版，用户确认目标用户=小学生、编程=Python、LLM=DeepSeek、部署流程=教师审批后至 Pi |

@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-os.environ.setdefault("JWT_SECRET", "test-secret-do-not-use-in-prod")
+os.environ.setdefault("SECRET_KEY", "test-secret-do-not-use-in-prod")
 os.environ.setdefault("EXOKIDS_SEED_PASSWORD", "pw123")
 
 import app.models.tables  # noqa: E402, F401

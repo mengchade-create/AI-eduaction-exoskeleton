@@ -18,5 +18,5 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(auth.router)
+app.include_router(auth.router, prefix="/api")
 app.include_router(health.router)

@@ -22,6 +22,7 @@ def create_telemetry_hypertable() -> None:
     """Create the TimescaleDB hypertable with a clear prerequisite error."""
 
     bind = op.get_bind()
+    bind.execute(sa.text("CREATE EXTENSION IF NOT EXISTS timescaledb"))
     timescale_available = bind.execute(
         sa.text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')")
     ).scalar()
