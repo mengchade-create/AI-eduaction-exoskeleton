@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, func, text
 from sqlalchemy.dialects import postgresql
 from sqlmodel import Field, SQLModel
 
@@ -18,7 +18,7 @@ def uuid_pk() -> Column:
 def created_at_column() -> Column:
     """Return a timestamp column with the SPEC default."""
 
-    return Column(DateTime(timezone=True), server_default=text("NOW()"))
+    return Column(DateTime(timezone=True), server_default=func.now())
 
 
 class User(SQLModel, table=True):
@@ -109,7 +109,7 @@ class Submission(SQLModel, table=True):
     )
     submitted_at: Optional[datetime] = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), server_default=text("NOW()")),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
     )
     status: Optional[str] = Field(
         default="submitted",
@@ -265,5 +265,5 @@ class AuditLog(SQLModel, table=True):
     payload: Optional[dict] = Field(default=None, sa_column=Column(postgresql.JSONB))
     ts: Optional[datetime] = Field(
         default=None,
-        sa_column=Column(DateTime(timezone=True), server_default=text("NOW()")),
+        sa_column=Column(DateTime(timezone=True), server_default=func.now()),
     )
