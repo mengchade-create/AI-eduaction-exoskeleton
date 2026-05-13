@@ -2,8 +2,7 @@ name: exokids
 
 services:
   db:
-    # Phase 1 将切换到 timescale/timescaledb-ha 镜像
-    image: postgres:16-alpine
+    image: timescale/timescaledb:latest-pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-exokids}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -51,13 +50,15 @@ services:
     image: python:3.11-slim
     working_dir: /app
     command:
-      - python
+      - sh
       - -c
-      - "print('ExoKids API skeleton: Phase 0 placeholder')"
+      - "pip install -e . && python -c \"import os; from sqlalchemy import create_engine, text; engine = create_engine(os.environ['DATABASE_URL']); conn = engine.connect(); conn.execute(text('CREATE EXTENSION IF NOT EXISTS timescaledb')); conn.commit(); conn.close()\" && alembic upgrade head && python -m app.seeds.default_seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
       ENV: ${ENV:-dev}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:5173","http://127.0.0.1:5173"]}
+      EXOKIDS_SEED_PASSWORD: ${EXOKIDS_SEED_PASSWORD:-change-me-please-seed-password}
       LLM_API_KEY: ${LLM_API_KEY:-sk-placeholder}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
@@ -71,28 +72,47 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)\""
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - ./apps/api:/app
     networks:
       - exokids-net
 
   web:
-    image: node:20-alpine
+    image: node:22-alpine
     working_dir: /app
     command:
-      - node
-      - -e
-      - "console.log('ExoKids web skeleton: Phase 0 placeholder')"
+      - sh
+      - -c
+      - "npm ci && npm run dev"
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       VITE_API_BASE: ${VITE_API_BASE:-http://localhost:8000}
       VITE_WS_BASE: ${VITE_WS_BASE:-ws://localhost:8000}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web:/app
+      - web_node_modules:/app/node_modules
     networks:
       - exokids-net
 
 volumes:
   pg_data:
   minio_data:
+  web_node_modules:
 
 networks:
   exokids-net:
