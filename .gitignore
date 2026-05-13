@@ -19,3 +19,7 @@ data/
 *.log
 .idea/
 .vscode/
+
+# Vite cache
+.vite/
+apps/web/.vite/
