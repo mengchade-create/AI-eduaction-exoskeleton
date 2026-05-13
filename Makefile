@@ -1,10 +1,11 @@
 .PHONY: lint test build
 
 lint:
-	@echo "Phase 0 skeleton lint smoke check"
+	docker compose run --rm --no-deps web sh -c "npm ci && npm run lint"
 
 test:
-	@echo "Phase 0 skeleton test smoke check"
+	docker compose run --rm --no-deps api sh -c "pip install -e '.[dev]' && pytest"
+	docker compose run --rm --no-deps web sh -c "npm ci && npm run lint && npm run build"
 
 build:
-	@echo "Phase 0 skeleton build smoke check"
+	docker compose run --rm --no-deps web sh -c "npm ci && npm run build"

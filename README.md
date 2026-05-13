@@ -27,13 +27,19 @@ make test
 make build
 ```
 
-The commands are Phase 0 smoke checks for the repository skeleton. Later PRs will connect them to the API, database, and web app toolchains.
+The commands run the Phase 0 checks through Docker Compose containers. `make test`
+runs the API pytest suite plus the web lint/build checks.
 
 ## Development Environment
 
 ```bash
 cp .env.example .env
-docker compose config
+docker compose config --services
+docker compose up -d db minio
+docker compose up -d api
+docker compose up -d web
 ```
 
-`docker compose up` becomes fully runnable after the API and web shells land in later Phase 0 PRs.
+The web app runs at http://localhost:5173 and proxies API calls to
+http://localhost:8000. Default seed accounts are created during API startup; for
+example, `xingxing` uses the password from `EXOKIDS_SEED_PASSWORD`.
