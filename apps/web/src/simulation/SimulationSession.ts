@@ -29,7 +29,7 @@ export interface SessionReplay {
 type TelemetrySubscriber = (frame: TelemetryFrame) => void;
 type StateSubscriber = (state: SessionState) => void;
 
-const DEFAULT_STEP_MS = 16;
+export const SESSION_DEFAULT_STEP_MS = 16;
 
 export class SimulationSession {
   private readonly seed: number;
@@ -102,7 +102,7 @@ export class SimulationSession {
     this.emitState();
   }
 
-  step(dtMs: number = DEFAULT_STEP_MS): TelemetryFrame {
+  step(dtMs: number = SESSION_DEFAULT_STEP_MS): TelemetryFrame {
     if (this.state !== "running") {
       this.throwIllegal("step");
     }
@@ -188,8 +188,8 @@ export class SimulationSession {
     session.start();
 
     for (const event of replay.events) {
-      while (session.getElapsedMs() + DEFAULT_STEP_MS <= event.t * 1000 + Number.EPSILON) {
-        session.step(DEFAULT_STEP_MS);
+      while (session.getElapsedMs() + SESSION_DEFAULT_STEP_MS <= event.t * 1000 + Number.EPSILON) {
+        session.step(SESSION_DEFAULT_STEP_MS);
       }
 
       if (event.type === "setAction") {
