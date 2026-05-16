@@ -23,3 +23,5 @@ data/
 # Vite cache
 .vite/
 apps/web/.vite/
+
+.tmp/
