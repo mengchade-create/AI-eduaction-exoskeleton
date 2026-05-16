@@ -59,6 +59,8 @@ export interface KernelConfig {
   dt?: number;
   /** Deterministic seed for future noise sources; defaults to 42. */
   seed?: number;
+  /** Initial strategy level; defaults to 1. */
+  initialStrategyLevel?: 1 | 2 | 3 | 4 | 5;
 }
 
 /** Strategy parameters accepted by SimulationKernel.setStrategy. */
@@ -127,6 +129,22 @@ export interface TelemetryFrame {
   battery: number;
   /** Current assist mode label. */
   assist_mode: string;
+  /** Current strategy identifier. */
+  strategy_id: string;
   /** Whether this is the final frame emitted from stop(). */
   final?: boolean;
+}
+
+/** Final score breakdown produced when the kernel stops. */
+export interface ScoreBreakdown {
+  total: number;
+  breakdown: {
+    energy_human: number;
+    energy_exo: number;
+    rom_violation: number;
+    smoothness: number;
+    fatigue_final: number;
+  };
+  strategy_id: string;
+  duration_s: number;
 }
