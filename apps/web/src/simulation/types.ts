@@ -29,6 +29,12 @@ export interface KernelState {
 /** Action template selected for the simulation. */
 export type ActionTemplateId = "stand" | "walk" | "squat" | "sit_to_stand" | "step";
 
+/** Options accepted by SimulationKernel.playAction. */
+export interface PlayActionOptions {
+  /** Number of steps for the finite step action. */
+  stepCount?: number;
+}
+
 /** Strategy id aligned with SPEC section 3.5.3 five-level strategy names. */
 export type StrategyId =
   | "good_assist"

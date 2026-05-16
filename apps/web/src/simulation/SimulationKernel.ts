@@ -3,6 +3,7 @@ import type {
   JointState,
   KernelConfig,
   KernelState,
+  PlayActionOptions,
   Pose,
   StrategyParams,
   TelemetryFrame,
@@ -12,10 +13,11 @@ import { HumanIntentModel } from "./models/HumanIntentModel";
 import { HumanTorqueModel } from "./models/HumanTorqueModel";
 import { JointDynamics } from "./models/JointDynamics";
 import { StrategyScorer } from "./models/StrategyScorer";
-import { mulberry32, rad2deg } from "./utils";
+import { deg2rad, mulberry32, rad2deg } from "./utils";
+import { SIT_HIP_DEG, SIT_TO_STAND_DURATION_S, STEP_COUNT } from "./models/HumanIntentModel";
 
-type ImplementedAction = "stand" | "walk";
 type Subscriber = (frame: TelemetryFrame) => void;
+type ActionCompleteSubscriber = (completedAction: ActionTemplateId) => void;
 
 const DEFAULT_DT = 0.002;
 const TELEMETRY_PERIOD = 1 / 60;
@@ -26,14 +28,18 @@ export class SimulationKernel {
   private t = 0;
   private nextTelemetryAt = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
-  private action: ImplementedAction = "stand";
+  private action: ActionTemplateId = "stand";
+  private actionStartedAt = 0;
   private leftHip: JointState;
   private rightHip: JointState;
   private stepCount = 0;
+  private actionStepCount = 0;
+  private targetStepCount = STEP_COUNT;
   private previousLeftPosRad = 0;
   private instantScore = 50;
   private cumulativeScore = 50;
   private subscribers = new Set<Subscriber>();
+  private actionCompleteSubscribers = new Set<ActionCompleteSubscriber>();
 
   private intent = new HumanIntentModel();
   private torque = new HumanTorqueModel();
@@ -47,14 +53,29 @@ export class SimulationKernel {
     this.prng = mulberry32(cfg.seed ?? 42);
     this.leftHip = this.zeroJoint();
     this.rightHip = this.zeroJoint();
+    this.intent.forceAction("stand", this.t);
   }
 
-  playAction(action: ActionTemplateId): void {
-    if (action !== "stand" && action !== "walk") {
-      throw new Error(`${action} not implemented yet`);
+  playAction(action: ActionTemplateId, options: PlayActionOptions = {}): void {
+    if (options.stepCount !== undefined && action !== "step") {
+      console.warn("stepCount option is ignored for non-step actions");
     }
 
     this.action = action;
+    this.actionStartedAt = this.t;
+    this.actionStepCount = 0;
+    this.targetStepCount = options.stepCount ?? STEP_COUNT;
+    this.previousLeftPosRad = this.leftHip.posRad;
+
+    if (action === "sit_to_stand") {
+      this.leftHip = this.jointAtDeg(SIT_HIP_DEG);
+      this.rightHip = this.jointAtDeg(SIT_HIP_DEG);
+      this.previousLeftPosRad = this.leftHip.posRad;
+      this.intent.beginAction(action, this.t, this.intent.sittingOutput());
+    } else {
+      this.intent.beginAction(action, this.t);
+    }
+
     this.stopTimer();
     this.timer = setInterval(() => {
       this.integrateOneTick();
@@ -94,6 +115,14 @@ export class SimulationKernel {
     };
   }
 
+  onActionComplete(cb: ActionCompleteSubscriber): () => void {
+    this.actionCompleteSubscribers.add(cb);
+
+    return () => {
+      this.actionCompleteSubscribers.delete(cb);
+    };
+  }
+
   getPose(): Pose {
     return {
       left_hip_deg: rad2deg(this.leftHip.posRad),
@@ -120,7 +149,7 @@ export class SimulationKernel {
   private integrateOneTick(): void {
     void this.prng;
 
-    const intent = this.intent.compute(this.t, this.action);
+    const intent = this.intent.compute(this.t);
     const leftHumanTau = this.torque.compute(
       intent.leftHipTargetPosRad,
       intent.leftHipTargetVelRad,
@@ -164,6 +193,7 @@ export class SimulationKernel {
     this.fatigue.accumulate(rightHumanTau, this.rightHip.velRad, this.dt);
     this.updateStepCount();
     this.t += this.dt;
+    this.updateActionCompletion();
 
     if (this.t + Number.EPSILON >= this.nextTelemetryAt) {
       this.emitTelemetry(false);
@@ -211,9 +241,32 @@ export class SimulationKernel {
   private updateStepCount(): void {
     if (this.previousLeftPosRad < 0 && this.leftHip.posRad >= 0) {
       this.stepCount += 1;
+      if (this.action === "step" && !this.intent.isBlending(this.t)) {
+        this.actionStepCount += 1;
+      }
     }
 
     this.previousLeftPosRad = this.leftHip.posRad;
+  }
+
+  private updateActionCompletion(): void {
+    if (this.action === "sit_to_stand" && this.t - this.actionStartedAt >= SIT_TO_STAND_DURATION_S) {
+      this.completeAction("sit_to_stand");
+    }
+
+    if (this.action === "step" && this.actionStepCount >= this.targetStepCount) {
+      this.completeAction("step");
+    }
+  }
+
+  private completeAction(completedAction: ActionTemplateId): void {
+    this.action = "stand";
+    this.actionStartedAt = this.t;
+    this.intent.beginAction("stand", this.t);
+
+    for (const cb of this.actionCompleteSubscribers) {
+      cb(completedAction);
+    }
   }
 
   private computeExoTorque(): number {
@@ -226,11 +279,16 @@ export class SimulationKernel {
     this.leftHip = this.zeroJoint();
     this.rightHip = this.zeroJoint();
     this.stepCount = 0;
+    this.actionStepCount = 0;
+    this.targetStepCount = STEP_COUNT;
     this.previousLeftPosRad = 0;
     this.instantScore = 50;
     this.cumulativeScore = 50;
     this.fatigue.reset();
     this.scorer.reset();
+    this.action = "stand";
+    this.actionStartedAt = this.t;
+    this.intent.forceAction("stand", this.t);
   }
 
   private stopTimer(): void {
@@ -242,5 +300,9 @@ export class SimulationKernel {
 
   private zeroJoint(): JointState {
     return { posRad: 0, velRad: 0, torqueHumanNm: 0, torqueExoNm: 0 };
+  }
+
+  private jointAtDeg(posDeg: number): JointState {
+    return { posRad: deg2rad(posDeg), velRad: 0, torqueHumanNm: 0, torqueExoNm: 0 };
   }
 }

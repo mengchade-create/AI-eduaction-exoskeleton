@@ -39,8 +39,8 @@ describe("SimulationKernel", () => {
 
     expect(secondRun).toEqual(firstRun);
     expect(firstRun[150]?.timestamp).toBe(2502);
-    expect(firstRun[150]?.joints.left_hip).toBeCloseTo(12.58914301430063, 12);
-    expect(firstRun[150]?.joints.right_hip).toBeCloseTo(-12.58914301430063, 12);
+    expect(firstRun[150]?.joints.left_hip).toBeCloseTo(10.490953601691736, 12);
+    expect(firstRun[150]?.joints.right_hip).toBeCloseTo(-10.490953601691736, 12);
     expect(firstRun[150]?.step_count).toBe(2);
   });
 
