@@ -5,7 +5,7 @@ import type {
   KernelState,
   PlayActionOptions,
   Pose,
-  StrategyParams,
+  ScoreBreakdown,
   TelemetryFrame,
 } from "./types";
 import { FatigueModel } from "./models/FatigueModel";
@@ -15,6 +15,8 @@ import { JointDynamics } from "./models/JointDynamics";
 import { StrategyScorer } from "./models/StrategyScorer";
 import { deg2rad, mulberry32, rad2deg } from "./utils";
 import { SIT_HIP_DEG, SIT_TO_STAND_DURATION_S, STEP_COUNT } from "./models/HumanIntentModel";
+import { createStrategy } from "./strategies/StrategyFactory";
+import type { Strategy, StrategyLevel } from "./strategies/Strategy";
 
 type Subscriber = (frame: TelemetryFrame) => void;
 type ActionCompleteSubscriber = (completedAction: ActionTemplateId) => void;
@@ -38,6 +40,9 @@ export class SimulationKernel {
   private previousLeftPosRad = 0;
   private instantScore = 50;
   private cumulativeScore = 50;
+  private strategy: Strategy;
+  private pendingStrategyLevel: StrategyLevel | null = null;
+  private scoreSnapshot: ScoreBreakdown | null = null;
   private subscribers = new Set<Subscriber>();
   private actionCompleteSubscribers = new Set<ActionCompleteSubscriber>();
 
@@ -51,6 +56,7 @@ export class SimulationKernel {
   constructor(cfg: KernelConfig = {}) {
     this.dt = cfg.dt ?? DEFAULT_DT;
     this.prng = mulberry32(cfg.seed ?? 42);
+    this.strategy = createStrategy(cfg.initialStrategyLevel ?? 1);
     this.leftHip = this.zeroJoint();
     this.rightHip = this.zeroJoint();
     this.intent.forceAction("stand", this.t);
@@ -82,29 +88,18 @@ export class SimulationKernel {
     }, this.dt * 1000);
   }
 
-  stop(): void {
+  stop(): ScoreBreakdown {
     this.stopTimer();
-    const finalScore = this.scorer.finalScore(this.fatigue.value);
-    this.instantScore = finalScore.instant;
-    this.cumulativeScore = finalScore.cumulative;
+    this.scoreSnapshot = this.scorer.finalScore(this.strategy.id, this.t);
+    this.instantScore = this.scoreSnapshot.total;
+    this.cumulativeScore = this.scoreSnapshot.total;
     this.resetState();
     this.emitTelemetry(true);
+    return this.scoreSnapshot;
   }
 
-  setStrategy(params: Partial<StrategyParams>): void {
-    const supportedKeys = new Set<keyof StrategyParams>(["speedScale", "hipAmplitudeDeg"]);
-    const ignoredKeys = Object.keys(params).filter(
-      (key) => !supportedKeys.has(key as keyof StrategyParams),
-    );
-
-    if (ignoredKeys.length > 0) {
-      console.warn(`Ignored strategy fields: ${ignoredKeys.join(", ")}`);
-    }
-
-    this.intent.setConfig({
-      speedScale: params.speedScale,
-      hipAmplitudeDeg: params.hipAmplitudeDeg,
-    });
+  setStrategy(level: StrategyLevel): void {
+    this.pendingStrategyLevel = level;
   }
 
   subscribe(cb: Subscriber): () => void {
@@ -141,6 +136,14 @@ export class SimulationKernel {
     };
   }
 
+  getCurrentStrategy(): { id: string; level: number } {
+    return { id: this.strategy.id, level: this.strategy.level };
+  }
+
+  getScoreSnapshot(): ScoreBreakdown | null {
+    return this.scoreSnapshot;
+  }
+
   reset(): void {
     this.stopTimer();
     this.resetState();
@@ -160,8 +163,26 @@ export class SimulationKernel {
       intent.rightHipTargetVelRad,
       this.rightHip,
     );
-    const leftExoTau = this.computeExoTorque();
-    const rightExoTau = this.computeExoTorque();
+    const phase = this.computePhase();
+    const assistTorque = this.strategy.computeAssistTorque({
+      q: { leftHip: this.leftHip.posRad, rightHip: this.rightHip.posRad },
+      dq: { leftHip: this.leftHip.velRad, rightHip: this.rightHip.velRad },
+      q_ref: {
+        leftHip: intent.leftHipTargetPosRad,
+        rightHip: intent.rightHipTargetPosRad,
+      },
+      dq_ref: {
+        leftHip: intent.leftHipTargetVelRad,
+        rightHip: intent.rightHipTargetVelRad,
+      },
+      tau_human: { leftHip: leftHumanTau, rightHip: rightHumanTau },
+      fatigue: this.fatigue.value,
+      action: this.action,
+      phase,
+      t: this.t,
+    });
+    const leftExoTau = assistTorque.leftHip;
+    const rightExoTau = assistTorque.rightHip;
 
     const leftNext = this.dynLeft.step(
       this.leftHip.posRad,
@@ -191,6 +212,18 @@ export class SimulationKernel {
 
     this.fatigue.accumulate(leftHumanTau, this.leftHip.velRad, this.dt);
     this.fatigue.accumulate(rightHumanTau, this.rightHip.velRad, this.dt);
+    this.scorer.record({
+      leftPosRad: this.leftHip.posRad,
+      rightPosRad: this.rightHip.posRad,
+      leftVelRad: this.leftHip.velRad,
+      rightVelRad: this.rightHip.velRad,
+      leftTauHumanNm: leftHumanTau,
+      rightTauHumanNm: rightHumanTau,
+      leftTauExoNm: leftExoTau,
+      rightTauExoNm: rightExoTau,
+      fatigue: this.fatigue.value,
+      dt: this.dt,
+    });
     this.updateStepCount();
     this.t += this.dt;
     this.updateActionCompletion();
@@ -202,6 +235,7 @@ export class SimulationKernel {
   }
 
   private emitTelemetry(final: boolean): void {
+    this.applyPendingStrategy();
     const frame = this.toTelemetryFrame(final);
 
     for (const cb of this.subscribers) {
@@ -234,6 +268,7 @@ export class SimulationKernel {
       step_count: this.stepCount,
       battery: 1,
       assist_mode: "off",
+      strategy_id: this.strategy.id,
       final,
     };
   }
@@ -269,8 +304,22 @@ export class SimulationKernel {
     }
   }
 
-  private computeExoTorque(): number {
-    return 0;
+  private applyPendingStrategy(): void {
+    if (this.pendingStrategyLevel === null) {
+      return;
+    }
+
+    this.strategy.reset();
+    this.strategy = createStrategy(this.pendingStrategyLevel);
+    this.pendingStrategyLevel = null;
+    this.scorer.reset();
+    this.scoreSnapshot = null;
+  }
+
+  private computePhase(): number {
+    const elapsed = Math.max(0, this.t - this.actionStartedAt);
+    const period = this.action === "squat" ? 2 : 1;
+    return (elapsed % period) / period;
   }
 
   private resetState(): void {
