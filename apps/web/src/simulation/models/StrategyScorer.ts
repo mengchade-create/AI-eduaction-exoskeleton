@@ -1,10 +1,10 @@
-import type { ScoreBreakdown } from "../types";
+import type { ActionType, ScoreBreakdown } from "../types";
+import { getEnergyBaseline } from "../scoring/energyBaseline";
 
 export const SCORE_WEIGHT_ENERGY = 100;
 export const SCORE_WEIGHT_ROM = 8;
 export const SCORE_WEIGHT_SMOOTHNESS = 0.00002;
 export const SCORE_WEIGHT_FATIGUE = 10;
-export const ENERGY_HUMAN_BASELINE = 230;
 export const HIP_ROM_LIMIT_RAD = (80 * Math.PI) / 180;
 
 export interface ScoreSample {
@@ -67,8 +67,9 @@ export class StrategyScorer {
     this.duration += sample.dt;
   }
 
-  finalScore(strategyId: string, durationS: number = this.duration): ScoreBreakdown {
-    const energyTerm = this.weights.energy * (1 - this.energyHuman / ENERGY_HUMAN_BASELINE);
+  finalScore(strategyId: string, durationS: number = this.duration, action: ActionType = "idle"): ScoreBreakdown {
+    const energyBaseline = getEnergyBaseline(action, durationS);
+    const energyTerm = this.weights.energy * (1 - this.energyHuman / energyBaseline);
     const total =
       energyTerm -
       this.weights.rom * this.romViolation -
