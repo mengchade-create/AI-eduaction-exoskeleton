@@ -29,6 +29,15 @@ export interface KernelState {
 /** Action template selected for the simulation. */
 export type ActionTemplateId = "stand" | "walk" | "squat" | "sit_to_stand" | "step";
 
+/** Public action type used by sessions. */
+export type ActionType = "idle" | ActionTemplateId;
+
+/** Simulation session state. */
+export type SessionState = "idle" | "running" | "paused" | "stopped";
+
+/** Unsubscribe function returned by subscription APIs. */
+export type Unsubscribe = () => void;
+
 /** Options accepted by SimulationKernel.playAction. */
 export interface PlayActionOptions {
   /** Number of steps for the finite step action. */
@@ -103,6 +112,18 @@ export interface JointAngles {
   right_hip: number;
 }
 
+/** Joint angular velocity payload exposed in degrees/s. */
+export interface JointVelocities {
+  left_hip: number;
+  right_hip: number;
+}
+
+/** Joint torque payload exposed in N*m. */
+export interface JointTorques {
+  left_hip: number;
+  right_hip: number;
+}
+
 /** Motor payload for target torque and current. */
 export interface MotorState {
   left_hip_torque: number;
@@ -115,14 +136,32 @@ export interface MotorState {
 export interface TelemetryFrame {
   /** Deterministic simulation timestamp in milliseconds. */
   timestamp: number;
+  /** Simulation time in seconds. */
+  t: number;
+  /** Real elapsed time since session start, in milliseconds. */
+  real_t_ms: number;
   /** Telemetry source. */
   source: "simulated";
   /** Zero-filled IMU placeholder for V1 schema compatibility. */
   imu: IMU;
   /** Hip joint angles in degrees. */
   joints: JointAngles;
+  /** Alias for joint angles used by the session API. */
+  q: JointAngles;
+  /** Joint angular velocity in degrees/s. */
+  dq: JointVelocities;
+  /** Human torque in N*m. */
+  tau_human: JointTorques;
+  /** Exoskeleton torque in N*m. */
+  tau_exo: JointTorques;
   /** Motor target torque and current values. */
   motors: MotorState;
+  /** Fatigue value in the range 0..1. */
+  fatigue: number;
+  /** Current action. */
+  action: ActionType;
+  /** Current action phase in the range 0..1. */
+  phase: number;
   /** Step count from hip zero-crossing detection. */
   step_count: number;
   /** Simulated battery value in the range 0..1. */
@@ -131,6 +170,8 @@ export interface TelemetryFrame {
   assist_mode: string;
   /** Current strategy identifier. */
   strategy_id: string;
+  /** Session state for session-originated frames. */
+  session_state?: SessionState;
   /** Whether this is the final frame emitted from stop(). */
   final?: boolean;
 }

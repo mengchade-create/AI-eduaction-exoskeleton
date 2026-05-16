@@ -1,5 +1,6 @@
 import type {
   ActionTemplateId,
+  ActionType,
   JointState,
   KernelConfig,
   KernelState,
@@ -31,6 +32,7 @@ export class SimulationKernel {
   private nextTelemetryAt = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
   private action: ActionTemplateId = "stand";
+  private publicAction: ActionType = "idle";
   private actionStartedAt = 0;
   private leftHip: JointState;
   private rightHip: JointState;
@@ -45,6 +47,7 @@ export class SimulationKernel {
   private scoreSnapshot: ScoreBreakdown | null = null;
   private subscribers = new Set<Subscriber>();
   private actionCompleteSubscribers = new Set<ActionCompleteSubscriber>();
+  private lastTelemetryFrame: TelemetryFrame | null = null;
 
   private intent = new HumanIntentModel();
   private torque = new HumanTorqueModel();
@@ -63,11 +66,20 @@ export class SimulationKernel {
   }
 
   playAction(action: ActionTemplateId, options: PlayActionOptions = {}): void {
+    this.configureAction(action, options);
+    this.stopTimer();
+    this.timer = setInterval(() => {
+      this.integrateOneTick();
+    }, this.dt * 1000);
+  }
+
+  configureAction(action: ActionTemplateId, options: PlayActionOptions = {}): void {
     if (options.stepCount !== undefined && action !== "step") {
       console.warn("stepCount option is ignored for non-step actions");
     }
 
     this.action = action;
+    this.publicAction = action;
     this.actionStartedAt = this.t;
     this.actionStepCount = 0;
     this.targetStepCount = options.stepCount ?? STEP_COUNT;
@@ -81,16 +93,11 @@ export class SimulationKernel {
     } else {
       this.intent.beginAction(action, this.t);
     }
-
-    this.stopTimer();
-    this.timer = setInterval(() => {
-      this.integrateOneTick();
-    }, this.dt * 1000);
   }
 
   stop(): ScoreBreakdown {
     this.stopTimer();
-    this.scoreSnapshot = this.scorer.finalScore(this.strategy.id, this.t);
+    this.scoreSnapshot = this.scorer.finalScore(this.strategy.id, this.t, this.publicAction);
     this.instantScore = this.scoreSnapshot.total;
     this.cumulativeScore = this.scoreSnapshot.total;
     this.resetState();
@@ -108,6 +115,16 @@ export class SimulationKernel {
     return () => {
       this.subscribers.delete(cb);
     };
+  }
+
+  advanceBy(dtMs: number): TelemetryFrame {
+    const targetT = this.t + dtMs / 1000;
+
+    while (this.t + this.dt <= targetT + Number.EPSILON) {
+      this.integrateOneTick();
+    }
+
+    return this.lastTelemetryFrame ?? this.toTelemetryFrame(false);
   }
 
   onActionComplete(cb: ActionCompleteSubscriber): () => void {
@@ -142,6 +159,10 @@ export class SimulationKernel {
 
   getScoreSnapshot(): ScoreBreakdown | null {
     return this.scoreSnapshot;
+  }
+
+  getCurrentAction(): ActionType {
+    return this.publicAction;
   }
 
   reset(): void {
@@ -237,6 +258,7 @@ export class SimulationKernel {
   private emitTelemetry(final: boolean): void {
     this.applyPendingStrategy();
     const frame = this.toTelemetryFrame(final);
+    this.lastTelemetryFrame = frame;
 
     for (const cb of this.subscribers) {
       cb(frame);
@@ -246,6 +268,8 @@ export class SimulationKernel {
   private toTelemetryFrame(final: boolean): TelemetryFrame {
     return {
       timestamp: Math.round(this.t * 1000),
+      t: this.t,
+      real_t_ms: Math.round(this.t * 1000),
       source: "simulated",
       imu: {
         ax: 0,
@@ -259,12 +283,31 @@ export class SimulationKernel {
         left_hip: rad2deg(this.leftHip.posRad),
         right_hip: rad2deg(this.rightHip.posRad),
       },
+      q: {
+        left_hip: rad2deg(this.leftHip.posRad),
+        right_hip: rad2deg(this.rightHip.posRad),
+      },
+      dq: {
+        left_hip: rad2deg(this.leftHip.velRad),
+        right_hip: rad2deg(this.rightHip.velRad),
+      },
+      tau_human: {
+        left_hip: this.leftHip.torqueHumanNm,
+        right_hip: this.rightHip.torqueHumanNm,
+      },
+      tau_exo: {
+        left_hip: this.leftHip.torqueExoNm,
+        right_hip: this.rightHip.torqueExoNm,
+      },
       motors: {
         left_hip_torque: this.leftHip.torqueExoNm,
         right_hip_torque: this.rightHip.torqueExoNm,
         left_hip_current: 0,
         right_hip_current: 0,
       },
+      fatigue: this.fatigue.value,
+      action: this.publicAction,
+      phase: this.computePhase(),
       step_count: this.stepCount,
       battery: 1,
       assist_mode: "off",
@@ -296,6 +339,7 @@ export class SimulationKernel {
 
   private completeAction(completedAction: ActionTemplateId): void {
     this.action = "stand";
+    this.publicAction = "idle";
     this.actionStartedAt = this.t;
     this.intent.beginAction("stand", this.t);
 

@@ -21,7 +21,7 @@ function runSquat(level: StrategyLevel): number {
   vi.useFakeTimers();
   const kernel = new SimulationKernel({ seed: 42, initialStrategyLevel: level });
   kernel.playAction("squat");
-  vi.advanceTimersByTime(4000);
+  vi.advanceTimersByTime(12000);
   const score = kernel.stop();
   vi.useRealTimers();
   return score.total;
@@ -70,6 +70,7 @@ describe("strategy factory", () => {
     expect(scores[2]).toBeLessThanOrEqual(scores[3]);
     expect(scores[3]).toBeLessThanOrEqual(scores[4]);
     expect(scores[4]).toBeGreaterThan(scores[0]);
+    expect(scores[4] - scores[3]).toBeGreaterThanOrEqual(0.5);
   });
 
   it("records ROM violation when hip angle exceeds the assumed limit", () => {
