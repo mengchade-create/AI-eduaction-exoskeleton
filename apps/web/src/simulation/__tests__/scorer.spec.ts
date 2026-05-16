@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { StrategyScorer } from "../models/StrategyScorer";
+import { getEnergyBaselinePerSecond } from "../scoring/energyBaseline";
 
 const SAMPLE = {
   leftPosRad: 0.2,
@@ -35,5 +36,9 @@ describe("StrategyScorer", () => {
     scorer.record({ ...SAMPLE, dt: frameDt });
 
     expect(scorer.finalScore("duration").duration_s).toBeCloseTo(2 * frameDt);
+  });
+
+  it("uses action-specific baseline table values", () => {
+    expect(getEnergyBaselinePerSecond("walk")).not.toBe(getEnergyBaselinePerSecond("squat"));
   });
 });
