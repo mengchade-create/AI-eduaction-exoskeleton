@@ -1,4 +1,3 @@
-import type { ActionTemplateId } from "../types";
 import { deg2rad } from "../utils";
 
 export interface IntentOutput {
@@ -8,38 +7,35 @@ export interface IntentOutput {
   rightHipTargetVelRad: number;
 }
 
+export interface IntentConfig {
+  speedScale: number;
+  hipAmplitudeDeg: number;
+}
+
 export class HumanIntentModel {
+  private cfg: IntentConfig = { speedScale: 1, hipAmplitudeDeg: 30 };
+
+  setConfig(cfg: Partial<IntentConfig>): void {
+    this.cfg = { ...this.cfg, ...cfg };
+  }
+
   /**
    * walk: opposing sine waves, 30 degrees amplitude, 1 Hz.
-   * squat: matching waves, 0 to -45 degrees, 0.5 Hz.
-   * idle: neutral.
+   * stand: neutral.
    */
-  compute(t: number, template: ActionTemplateId): IntentOutput {
+  compute(t: number, template: "stand" | "walk"): IntentOutput {
     if (template === "walk") {
-      const amplitudeRad = deg2rad(30);
-      const omega = 2 * Math.PI;
-      const pos = amplitudeRad * Math.sin(omega * t);
-      const vel = amplitudeRad * omega * Math.cos(omega * t);
+      const amplitudeRad = deg2rad(this.cfg.hipAmplitudeDeg);
+      const omega = 2 * Math.PI * this.cfg.speedScale;
+      const phase = omega * t;
+      const pos = amplitudeRad * Math.sin(phase);
+      const vel = amplitudeRad * omega * Math.cos(phase);
 
       return {
         leftHipTargetPosRad: pos,
         leftHipTargetVelRad: vel,
         rightHipTargetPosRad: -pos,
         rightHipTargetVelRad: -vel,
-      };
-    }
-
-    if (template === "squat") {
-      const amplitudeRad = deg2rad(22.5);
-      const omega = Math.PI;
-      const pos = -amplitudeRad * (1 - Math.cos(omega * t));
-      const vel = -amplitudeRad * omega * Math.sin(omega * t);
-
-      return {
-        leftHipTargetPosRad: pos,
-        leftHipTargetVelRad: vel,
-        rightHipTargetPosRad: pos,
-        rightHipTargetVelRad: vel,
       };
     }
 

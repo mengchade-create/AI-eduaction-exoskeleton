@@ -21,6 +21,12 @@ export class StrategyScorer {
     return { instant: 50, cumulative: this.rolling };
   }
 
+  finalScore(_fatigue: number): { instant: number; cumulative: number } {
+    void _fatigue;
+
+    return { instant: 50, cumulative: this.rolling };
+  }
+
   reset(): void {
     this.rolling = 50;
   }
