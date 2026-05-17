@@ -24,9 +24,10 @@ const SHOULDER_Y = HIP_HEIGHT + TORSO_HEIGHT - 0.13;
 const ARM_LENGTH = 0.34;
 const ARM_ANGLE_RAD = Math.PI / 4;
 const MOTOR_OFFSET_X = 0.23;
+const MOTOR_RADIUS = 0.065;
 const THIGH_STRAP_Y = -LEG_LENGTH * 0.15;
 const THIGH_STRAP_HEIGHT = 0.08;
-const ROD_A_LENGTH = 0.1;
+const THIGH_STRAP_WIDTH = 0.15;
 const ROD_RADIUS = 0.018;
 const LEG_ROD_BOW_X = 0.06;
 
@@ -63,8 +64,9 @@ function Leg({ hipDeg, side }: LegProps) {
   const name = side === "left" ? "rig-left-leg" : "rig-right-leg";
   const legRodGeometry = useMemo(() => {
     const motorX = side === "left" ? -MOTOR_OFFSET_X : MOTOR_OFFSET_X;
-    const top = new THREE.Vector3(motorX - x, 0, 0);
-    const bottom = new THREE.Vector3(0, THIGH_STRAP_Y + THIGH_STRAP_HEIGHT / 2, 0);
+    const strapSideX = side === "left" ? -THIGH_STRAP_WIDTH / 2 : THIGH_STRAP_WIDTH / 2;
+    const top = new THREE.Vector3(motorX - x, -MOTOR_RADIUS, 0);
+    const bottom = new THREE.Vector3(strapSideX, THIGH_STRAP_Y, 0);
     const outwardBowX = side === "left" ? -LEG_ROD_BOW_X : LEG_ROD_BOW_X;
     const midpoint = new THREE.Vector3((top.x + bottom.x) / 2 + outwardBowX, (top.y + bottom.y) / 2, 0);
     const curve = new THREE.QuadraticBezierCurve3(top, midpoint, bottom);
@@ -113,21 +115,6 @@ function Arm({ side }: ArmProps) {
   );
 }
 
-interface BodyRodProps {
-  side: "left" | "right";
-}
-
-function BodyRod({ side }: BodyRodProps) {
-  const x = side === "left" ? -MOTOR_OFFSET_X : MOTOR_OFFSET_X;
-
-  return (
-    <mesh name={side === "left" ? "rig-left-belt-motor-rod" : "rig-right-belt-motor-rod"} position={[x, HIP_HEIGHT + 0.08, 0]}>
-      <cylinderGeometry args={[ROD_RADIUS, ROD_RADIUS, ROD_A_LENGTH, 12]} />
-      <meshStandardMaterial color={rodColor} />
-    </mesh>
-  );
-}
-
 export default function Rig({ leftHipDeg = 0, rightHipDeg = 0 }: RigProps) {
   return (
     <group name="rig-root">
@@ -142,8 +129,6 @@ export default function Rig({ leftHipDeg = 0, rightHipDeg = 0 }: RigProps) {
         <RoundedBox args={[0.36, 0.09, 0.24]} position={[0, HIP_HEIGHT + 0.045, 0]} radius={0.025} smoothness={3}>
           <meshStandardMaterial color={exoColor} />
         </RoundedBox>
-        <BodyRod side="left" />
-        <BodyRod side="right" />
         <mesh name="motor-left" position={[-MOTOR_OFFSET_X, HIP_HEIGHT, 0]} rotation={[0, 0, Math.PI / 2]} userData={{ role: "motor-left" }}>
           <cylinderGeometry args={[0.065, 0.065, 0.1, 16]} />
           <meshStandardMaterial color={motorColor} />
