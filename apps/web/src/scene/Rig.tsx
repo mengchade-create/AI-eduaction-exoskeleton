@@ -17,9 +17,10 @@ const HIP_HEIGHT = LEG_LENGTH;
 const HIP_OFFSET_X = 0.09;
 const TORSO_HEIGHT = 0.42;
 const TORSO_CENTER_Y = HIP_HEIGHT + TORSO_HEIGHT / 2;
-const SHOULDER_Y = HIP_HEIGHT + TORSO_HEIGHT - 0.08;
-const UPPER_ARM_LENGTH = 0.3;
-const FOREARM_LENGTH = 0.22;
+const SHOULDER_X = 0.25;
+const SHOULDER_Y = HIP_HEIGHT + TORSO_HEIGHT - 0.13;
+const UPPER_ARM_LENGTH = 0.2;
+const FOREARM_LENGTH = 0.14;
 const MOTOR_OFFSET_X = 0.23;
 const THIGH_STRAP_Y = -LEG_LENGTH * 0.15;
 const THIGH_STRAP_HEIGHT = 0.08;
@@ -85,26 +86,26 @@ interface ArmProps {
 
 function Arm({ side }: ArmProps) {
   const isLeft = side === "left";
-  const x = isLeft ? -0.21 : 0.21;
-  const forearmRotationZ = isLeft ? Math.PI / 2 - 0.15 : -(Math.PI / 2 - 0.15);
+  const x = isLeft ? SHOULDER_X : -SHOULDER_X;
+  const forearmRotationZ = isLeft ? Math.PI / 2 : -Math.PI / 2;
   const name = isLeft ? "rig-left-arm" : "rig-right-arm";
 
   return (
     <group name={name} position={[x, SHOULDER_Y, 0]}>
-      <RoundedBox args={[0.1, UPPER_ARM_LENGTH, 0.1]} position={[0, -UPPER_ARM_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
+      <RoundedBox args={[0.09, UPPER_ARM_LENGTH, 0.09]} position={[0, -UPPER_ARM_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
         <meshStandardMaterial color={torsoColor} />
       </RoundedBox>
       <group position={[0, -UPPER_ARM_LENGTH, 0]}>
         <mesh>
-          <sphereGeometry args={[0.055, 18, 12]} />
+          <sphereGeometry args={[0.05, 18, 12]} />
           <meshStandardMaterial color={torsoColor} />
         </mesh>
         <group rotation={[0, 0, forearmRotationZ]}>
-          <RoundedBox args={[0.09, FOREARM_LENGTH, 0.09]} position={[0, FOREARM_LENGTH / 2, 0]} radius={0.022} smoothness={3}>
+          <RoundedBox args={[0.085, FOREARM_LENGTH, 0.085]} position={[0, FOREARM_LENGTH / 2, 0]} radius={0.022} smoothness={3}>
             <meshStandardMaterial color={torsoColor} />
           </RoundedBox>
           <mesh position={[0, FOREARM_LENGTH, 0]}>
-            <sphereGeometry args={[0.07, 20, 14]} />
+            <sphereGeometry args={[0.06, 20, 14]} />
             <meshStandardMaterial color={headColor} />
           </mesh>
         </group>
