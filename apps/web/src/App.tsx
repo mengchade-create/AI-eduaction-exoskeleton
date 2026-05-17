@@ -4,6 +4,7 @@ import { AuthProvider } from "./components/AuthContext";
 import { useAuth } from "./components/authState";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
+import SimPage from "./pages/SimPage";
 
 function ProtectedDashboard() {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/dashboard/:role" element={<ProtectedDashboard />} />
+          <Route path="/sim" element={<SimPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
