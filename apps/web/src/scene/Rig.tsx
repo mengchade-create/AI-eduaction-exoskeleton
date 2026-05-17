@@ -97,7 +97,7 @@ interface ArmProps {
 function Arm({ side }: ArmProps) {
   const isLeft = side === "left";
   const shoulderX = isLeft ? SHOULDER_X : -SHOULDER_X;
-  const rotationZ = isLeft ? -ARM_ANGLE_RAD : ARM_ANGLE_RAD;
+  const rotationZ = isLeft ? ARM_ANGLE_RAD : -ARM_ANGLE_RAD;
   const name = isLeft ? "rig-left-arm" : "rig-right-arm";
 
   return (
