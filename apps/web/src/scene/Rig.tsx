@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 
+import { RoundedBox } from "@react-three/drei";
+
 export interface RigProps {
   /** Left hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
   leftHipDeg?: number;
@@ -9,15 +11,22 @@ export interface RigProps {
 
 const HIP_ROM_LIMIT_DEG = 80;
 const DEG_TO_RAD = Math.PI / 180;
-const LEG_LENGTH = 0.7;
-const FOOT_HEIGHT = 0.05;
-const HIP_HEIGHT = LEG_LENGTH + FOOT_HEIGHT;
+const LEG_LENGTH = 0.62;
+const FOOT_HEIGHT = 0.06;
+const HIP_HEIGHT = LEG_LENGTH;
 const HIP_OFFSET_X = 0.09;
+const TORSO_HEIGHT = 0.42;
+const TORSO_CENTER_Y = HIP_HEIGHT + TORSO_HEIGHT / 2;
+const SHOULDER_Y = HIP_HEIGHT + TORSO_HEIGHT - 0.08;
+const ARM_LENGTH = 0.5;
+const MOTOR_OFFSET_X = 0.23;
 
-const headColor = "#fbbf24";
+const headColor = "#fde68a";
 const torsoColor = "#3b82f6";
-const legColor = "#1e40af";
+const legColor = "#1e3a8a";
 const footColor = "#374151";
+const exoColor = "#fb923c";
+const motorColor = "#525252";
 const limitColor = "#dc2626";
 
 export function clampHipDeg(deg: number): number {
@@ -41,16 +50,41 @@ function Leg({ hipDeg, side }: LegProps) {
   const clampedDeg = clampHipDeg(hipDeg);
   const materialColor = isAtRomLimit(clampedDeg) ? limitColor : legColor;
   const x = side === "left" ? -HIP_OFFSET_X : HIP_OFFSET_X;
+  const name = side === "left" ? "rig-left-leg" : "rig-right-leg";
 
   return (
-    <group position={[x, HIP_HEIGHT, 0]} rotation={[degToRad(clampedDeg), 0, 0]}>
-      <mesh position={[0, -LEG_LENGTH / 2, 0]}>
-        <boxGeometry args={[0.12, LEG_LENGTH, 0.12]} />
+    <group name={name} position={[x, HIP_HEIGHT, 0]} rotation={[degToRad(clampedDeg), 0, 0]}>
+      <RoundedBox args={[0.15, 0.08, 0.15]} position={[0, -LEG_LENGTH * 0.15, 0]} radius={0.02} smoothness={3}>
+        <meshStandardMaterial color={exoColor} />
+      </RoundedBox>
+      <RoundedBox args={[0.13, LEG_LENGTH, 0.13]} position={[0, -LEG_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
         <meshStandardMaterial color={materialColor} />
-      </mesh>
-      <mesh position={[0, -LEG_LENGTH - FOOT_HEIGHT / 2, -0.04]}>
-        <boxGeometry args={[0.2, FOOT_HEIGHT, 0.25]} />
+      </RoundedBox>
+      <RoundedBox args={[0.22, FOOT_HEIGHT, 0.28]} position={[0, -LEG_LENGTH + FOOT_HEIGHT / 2, -0.06]} radius={0.02} smoothness={3}>
         <meshStandardMaterial color={footColor} />
+      </RoundedBox>
+    </group>
+  );
+}
+
+interface ArmProps {
+  side: "left" | "right";
+}
+
+function Arm({ side }: ArmProps) {
+  const isLeft = side === "left";
+  const x = isLeft ? -0.21 : 0.21;
+  const zRotation = isLeft ? 0.14 : -0.14;
+  const name = isLeft ? "rig-left-arm" : "rig-right-arm";
+
+  return (
+    <group name={name} position={[x, SHOULDER_Y, 0]} rotation={[0.05, 0, zRotation]}>
+      <RoundedBox args={[0.1, ARM_LENGTH, 0.1]} position={[0, -ARM_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
+        <meshStandardMaterial color={torsoColor} />
+      </RoundedBox>
+      <mesh position={[0, -ARM_LENGTH, 0]}>
+        <sphereGeometry args={[0.07, 20, 14]} />
+        <meshStandardMaterial color={headColor} />
       </mesh>
     </group>
   );
@@ -58,15 +92,29 @@ function Leg({ hipDeg, side }: LegProps) {
 
 export default function Rig({ leftHipDeg = 0, rightHipDeg = 0 }: RigProps) {
   return (
-    <group>
-      <mesh position={[0, HIP_HEIGHT + 0.25, 0]}>
-        <boxGeometry args={[0.3, 0.5, 0.2]} />
-        <meshStandardMaterial color={torsoColor} />
-      </mesh>
-      <mesh position={[0, HIP_HEIGHT + 0.62, 0]}>
-        <sphereGeometry args={[0.12, 24, 16]} />
-        <meshStandardMaterial color={headColor} />
-      </mesh>
+    <group name="rig-root">
+      <group name="rig-upper">
+        <RoundedBox args={[0.32, TORSO_HEIGHT, 0.22]} position={[0, TORSO_CENTER_Y, 0]} radius={0.04} smoothness={3}>
+          <meshStandardMaterial color={torsoColor} />
+        </RoundedBox>
+        <mesh position={[0, HIP_HEIGHT + TORSO_HEIGHT + 0.14, 0]}>
+          <sphereGeometry args={[0.16, 28, 18]} />
+          <meshStandardMaterial color={headColor} />
+        </mesh>
+        <RoundedBox args={[0.36, 0.09, 0.24]} position={[0, HIP_HEIGHT + 0.045, 0]} radius={0.025} smoothness={3}>
+          <meshStandardMaterial color={exoColor} />
+        </RoundedBox>
+        <mesh name="motor-left" position={[-MOTOR_OFFSET_X, HIP_HEIGHT, 0]} rotation={[0, 0, Math.PI / 2]} userData={{ role: "motor-left" }}>
+          <cylinderGeometry args={[0.065, 0.065, 0.1, 16]} />
+          <meshStandardMaterial color={motorColor} />
+        </mesh>
+        <mesh name="motor-right" position={[MOTOR_OFFSET_X, HIP_HEIGHT, 0]} rotation={[0, 0, Math.PI / 2]} userData={{ role: "motor-right" }}>
+          <cylinderGeometry args={[0.065, 0.065, 0.1, 16]} />
+          <meshStandardMaterial color={motorColor} />
+        </mesh>
+        <Arm side="left" />
+        <Arm side="right" />
+      </group>
       <Leg hipDeg={leftHipDeg} side="left" />
       <Leg hipDeg={rightHipDeg} side="right" />
     </group>
