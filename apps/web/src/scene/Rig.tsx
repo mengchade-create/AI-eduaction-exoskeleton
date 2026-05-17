@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 
+import { useMemo } from "react";
 import { RoundedBox } from "@react-three/drei";
+import * as THREE from "three";
 
 export interface RigProps {
   /** Left hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
@@ -19,16 +21,14 @@ const TORSO_HEIGHT = 0.42;
 const TORSO_CENTER_Y = HIP_HEIGHT + TORSO_HEIGHT / 2;
 const SHOULDER_X = 0.21;
 const SHOULDER_Y = HIP_HEIGHT + TORSO_HEIGHT - 0.13;
-const BELT_TOP_Y = 0.71;
-const HAND_X = 0.1;
-const ELBOW_Y = BELT_TOP_Y;
-const UPPER_ARM_LENGTH = SHOULDER_Y - ELBOW_Y;
-const FOREARM_LENGTH = SHOULDER_X - HAND_X;
+const ARM_LENGTH = 0.34;
+const ARM_ANGLE_RAD = Math.PI / 4;
 const MOTOR_OFFSET_X = 0.23;
 const THIGH_STRAP_Y = -LEG_LENGTH * 0.15;
 const THIGH_STRAP_HEIGHT = 0.08;
 const ROD_A_LENGTH = 0.1;
 const ROD_RADIUS = 0.018;
+const LEG_ROD_BOW_X = 0.06;
 
 const headColor = "#fde68a";
 const torsoColor = "#3b82f6";
@@ -60,13 +60,21 @@ function Leg({ hipDeg, side }: LegProps) {
   const clampedDeg = clampHipDeg(hipDeg);
   const materialColor = isAtRomLimit(clampedDeg) ? limitColor : legColor;
   const x = side === "left" ? -HIP_OFFSET_X : HIP_OFFSET_X;
-  const rodX = side === "left" ? -0.02 : 0.02;
   const name = side === "left" ? "rig-left-leg" : "rig-right-leg";
+  const legRodGeometry = useMemo(() => {
+    const motorX = side === "left" ? -MOTOR_OFFSET_X : MOTOR_OFFSET_X;
+    const top = new THREE.Vector3(motorX - x, 0, 0);
+    const bottom = new THREE.Vector3(0, THIGH_STRAP_Y + THIGH_STRAP_HEIGHT / 2, 0);
+    const outwardBowX = side === "left" ? -LEG_ROD_BOW_X : LEG_ROD_BOW_X;
+    const midpoint = new THREE.Vector3((top.x + bottom.x) / 2 + outwardBowX, (top.y + bottom.y) / 2, 0);
+    const curve = new THREE.QuadraticBezierCurve3(top, midpoint, bottom);
+
+    return new THREE.TubeGeometry(curve, 24, ROD_RADIUS, 12, false);
+  }, [side, x]);
 
   return (
     <group name={name} position={[x, HIP_HEIGHT, 0]} rotation={[degToRad(clampedDeg), 0, 0]}>
-      <mesh position={[rodX, -0.06, 0]} rotation={[0, 0, 0]}>
-        <cylinderGeometry args={[0.018, 0.018, 0.12, 12]} />
+      <mesh geometry={legRodGeometry}>
         <meshStandardMaterial color={rodColor} />
       </mesh>
       <RoundedBox args={[0.15, THIGH_STRAP_HEIGHT, 0.15]} position={[0, THIGH_STRAP_Y, 0]} radius={0.02} smoothness={3}>
@@ -89,23 +97,16 @@ interface ArmProps {
 function Arm({ side }: ArmProps) {
   const isLeft = side === "left";
   const shoulderX = isLeft ? SHOULDER_X : -SHOULDER_X;
-  const handX = isLeft ? HAND_X : -HAND_X;
+  const rotationZ = isLeft ? -ARM_ANGLE_RAD : ARM_ANGLE_RAD;
   const name = isLeft ? "rig-left-arm" : "rig-right-arm";
 
   return (
-    <group name={name}>
-      <RoundedBox args={[0.09, UPPER_ARM_LENGTH, 0.09]} position={[shoulderX, (SHOULDER_Y + ELBOW_Y) / 2, 0]} radius={0.02} smoothness={3}>
+    <group name={name} position={[shoulderX, SHOULDER_Y, 0]} rotation={[0, 0, rotationZ]}>
+      <RoundedBox args={[0.09, ARM_LENGTH, 0.09]} position={[0, -ARM_LENGTH / 2, 0]} radius={0.02} smoothness={3}>
         <meshStandardMaterial color={torsoColor} />
       </RoundedBox>
-      <mesh position={[shoulderX, ELBOW_Y, 0]}>
-        <sphereGeometry args={[0.05, 16, 16]} />
-        <meshStandardMaterial color={torsoColor} />
-      </mesh>
-      <RoundedBox args={[FOREARM_LENGTH, 0.085, 0.085]} position={[(shoulderX + handX) / 2, ELBOW_Y, 0]} radius={0.02} smoothness={3}>
-        <meshStandardMaterial color={torsoColor} />
-      </RoundedBox>
-      <mesh position={[handX, ELBOW_Y, 0]}>
-        <sphereGeometry args={[0.06, 16, 16]} />
+      <mesh position={[0, -ARM_LENGTH, 0]}>
+        <sphereGeometry args={[0.07, 20, 20]} />
         <meshStandardMaterial color={headColor} />
       </mesh>
     </group>
