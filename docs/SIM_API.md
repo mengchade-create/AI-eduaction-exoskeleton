@@ -115,9 +115,6 @@ Current constants:
 `ScoreBreakdown.breakdown.energy_human` uses calibrated per-action L1 baselines.
 Weights and ROM limit are not final science values.
 
-<!-- merged from #10: `BASELINE_FLOOR_J_PER_S` was described as a guardrail waiting for SPEC confirmation. PR #11 resolved it in §8 as SPEC-uncovered retained Phase 1 behavior. -->
-<!-- merged from #10: `HIP_ROM_LIMIT_RAD` was described as a placeholder waiting for SPEC source. PR #11 resolved it in SPEC §3.5 as the 80deg hard limit. -->
-
 ## 5. Strategy registry
 
 ### 5.1 Intensity axis (Phase 1, registered)
@@ -133,6 +130,16 @@ Weights and ROM limit are not final science values.
 (Exact gain / parameter values live in kernel source; this table only
 records the registry contract.)
 
+### Strategy id mapping (Phase 1 implementation → SPEC key)
+
+| SPEC key | Phase 1 implementation id |
+|----------|---------------------------|
+| L1       | `level_1_zero`            |
+| L2       | `level_2_passive`         |
+| L3       | `level_3_fixed_ff`        |
+| L4       | `level_4_phase_adapt`     |
+| L5       | `level_5_full_adapt`      |
+
 Phase 1 implementation mapping:
 
 ```ts
@@ -146,8 +153,6 @@ import { createStrategy } from "../simulation/strategies/StrategyFactory";
 | 3 | `level_3_fixed_ff` | `FIXED_FEEDFORWARD_ALPHA = 0.3` | `20.83` |
 | 4 | `level_4_phase_adapt` | `PHASE_ALPHA_BASE = 0.45`, `PHASE_ALPHA_SWING_BONUS = 0.2` | `34.00` |
 | 5 | `level_5_full_adapt` | `FULL_ALPHA_BASE = 0.65`, `FULL_ALPHA_PHASE_BONUS = 0.15`, `FULL_ALPHA_FATIGUE_BONUS = 0.2`, `FULL_ALPHA_MAX = 0.95` | `41.98` |
-
-<!-- merged from #10: PR #10 used the implementation ids `level_1_zero`..`level_5_full_adapt` as the main strategy names. PR #11 keeps the SPEC-facing intensity-axis keys L1..L5 and records the implementation ids as a Phase 1 mapping. -->
 
 ### 5.2 Quality axis (Phase 2 implementation pending)
 
@@ -193,8 +198,6 @@ Not guaranteed yet:
 Browser vs Node byte equality and partial replay semantics are governed
 by §8.
 
-<!-- merged from #10: PR #10 listed browser vs Node exact equivalence and partial replay from the middle of a session as not guaranteed yet. PR #11 resolves the contract in §8: byte equality is Node >= 20 / pinned V8 only, browsers guarantee numerical equivalence, and partial replay is deterministic re-execution of frames[0..n). -->
-
 ## 8. SPEC-uncovered behaviors retained from Phase 1
 
 These four behaviors are not covered by SPEC. Phase 1 implementation is
@@ -211,8 +214,6 @@ retained as-is; SPEC will not be expanded to cover them.
 
 - **`BASELINE_FLOOR_J_PER_S = 5`** — Status: SPEC does not cover; retain Phase 1 implementation.
   Rationale: empirical floor preventing energy-save score from saturating at 100 in near-zero baseline windows; value validated against Phase 1 smoke session traces.
-
-<!-- merged from #10: PR #10 grouped ADR-0001, strategy names, calibrated baselines, score weights, Hip ROM, reset subscriptions, replay partiality, and `BASELINE_FLOOR_J_PER_S` under known placeholders / unresolved items. PR #11 keeps the resolved contracts for walk amplitude, two-axis strategy space, Hip ROM, reset, replay partiality, byte equality, and baseline floor; remaining calibration notes are kept in §4. -->
 
 ## 9. Invariants
 
