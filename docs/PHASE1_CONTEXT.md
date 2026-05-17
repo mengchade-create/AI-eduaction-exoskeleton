@@ -361,3 +361,22 @@ lint:
 build:
 	docker compose run --rm --no-deps web sh -c "npm ci && npm run build"
 ```
+
+## Phase 1 closure status (added by chore/p1-spec-reconcile)
+
+The following items previously listed in this document or in earlier
+discussion as "awaiting SPEC confirmation" / "calibration pending" are
+hereby resolved:
+
+- Walk amplitude — Resolved by decision 0001-walk-amplitude-25deg / SPEC §3.5.3 (locked at 25°).
+- Strategy space (5 vs 7) — Resolved by decision 0002-strategy-space-two-axes / SPEC §3.5.4 (two-axis model). `bad_phase` / `reverse` implementation deferred to Phase 2 (B2-impl).
+- Display score / medal — Contract resolved by SIM_API §10. Implementation deferred to Phase 2 (C2-impl).
+- Hip ROM 80° — Resolved by SPEC §3.5 hip-flexion ROM hard-limit clause (target 75° + margin 5° = 80°).
+- `reset()` retains subscriptions — Resolved by SIM_API §8: SPEC does not cover; Phase 1 implementation retained.
+- `replay(partial)` semantics — Resolved by SIM_API §8: SPEC does not cover; Phase 1 implementation retained.
+- Byte-equality determinism scope — Resolved by SIM_API §8: SPEC does not cover; Phase 1 implementation retained.
+- `BASELINE_FLOOR_J_PER_S = 5` — Resolved by SIM_API §8: SPEC does not cover; Phase 1 implementation retained.
+
+Phase 2 follow-up tickets:
+- B2-impl: register `bad_phase` and `reverse` in `StrategyFactory`, add unit tests, wire secondary UI entry. Parameters frozen by decision 0002-strategy-space-two-axes (no further parameter discussion required).
+- C2-impl: implement `apps/web/src/simulation/scoring/displayScore.ts` per SIM_API §10; calibrate `k_stab` / `k_track` / medal thresholds during dashboard integration.

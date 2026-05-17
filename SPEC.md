@@ -379,7 +379,7 @@ q, dq  ────┘                                            │
 
 **HumanIntentModel**
 - 输出 `q_ref(t)`：理想步态下左右髋的角度参考轨迹
-- V1 实现：正弦波，左右髋相位差 π，频率 1 Hz，幅值 0.5 rad（与 Phase 1 `walk` 动作模板共享同一套参数）
+- V1 实现：正弦波，左右髋相位差 π，频率 1 Hz。Walk reference trajectory amplitude: **25°** (locked by decision 0001-walk-amplitude-25deg).
 
 **HumanTorqueModel**
 - 输入：`q_ref, q, dq`
@@ -401,17 +401,25 @@ q, dq  ────┘                                            │
 - **跟踪精度** = 由 `|q_ref - q|` 的 RMSE 归一化，误差越小得分越高
 - 总分 = 三子项加权平均，权重在 `sim/config.yaml` 中
 
-#### 3.5.4 五档参考策略（用于教学演示 + 自测断言）
+#### 3.5.4 Strategy space (two orthogonal axes)
 
-| 策略名 | ExoController 行为 | 预期现象 |
-|---|---|---|
-| `good_assist` | `tau_exo = α * tau_human`（α>0 同相位按比例助力） | 疲劳度大幅下降，步速稳、动画轻松 |
-| `mid_assist` | 同上，α 较小 | 疲劳度中等下降 |
-| `zero` | `tau_exo = 0` | 基线表现 |
-| `bad_phase` | `tau_exo` 相位偏移 π/2 | 步态抖动，疲劳度略升 |
-| `reverse` | `tau_exo = -α * tau_human` | 小人明显吃力、步速慢、评分极低 |
+The exoskeleton assistance strategy space is modeled as two orthogonal axes:
 
-Phase 1 交付时 5 档必须全部可运行，且评分从高到低**严格单调**（作为 CI 断言）。
+**Intensity axis (primary, pedagogical line):**
+Five graded levels L1..L5 already implemented in Phase 1 kernel.
+This is the axis exposed to the primary teaching UI.
+
+**Quality axis (demonstration / experimental):**
+Two additional strategies layered on top of the L3 `good_assist` baseline:
+- `bad_phase` — `good_assist` with reference torque phase shifted by **+π/2**.
+- `reverse`   — `good_assist` with assistance gain **α negated** (α → −α).
+
+Quality-axis strategies are surfaced via a secondary UI entry only;
+they are not part of the primary L1..L5 progression.
+
+Total registered strategies in kernel after Phase 2 implementation: **7**
+(5 intensity + 2 quality). See decision 0002-strategy-space-two-axes for
+the rationale and the implementation deferral note.
 
 #### 3.5.5 小学生侧的可观测信号
 
@@ -425,6 +433,16 @@ Phase 1 交付时 5 档必须全部可运行，且评分从高到低**严格单�
 - 仅用于 K-12 教育场景下的定性演示
 - 未来如需更高保真度，可在不改动 §3.4 `SimulationKernel` 对外接口的前提下替换 `JointDynamics` 为 MuJoCo / PyBullet 后端（V2+）
 - 所有参数（I, b, Kp, Kd, α, 评分权重）默认值**必须由人类先手动调到"5 档评分单调 + 动画视觉差异明显"后固化到 `sim/config.yaml`**，Codex 不得自行改动默认值
+
+#### 3.5.7 Hip flexion ROM hard limit
+
+Target hip flexion ROM: 75°.
+Safety margin: 5°.
+Hard limit enforced in kernel: **80°** (`HIP_ROM_LIMIT_RAD`).
+
+Rationale: 6–12 yo pediatric squat comfortable range, well below
+physiological limit; 5° margin guards against overshoot from controller
+transients and reference-trajectory edge cases.
 ---
 
 ## 4. 数据库 Schema
@@ -1226,3 +1244,6 @@ VITE_WS_BASE=ws://localhost:8000
 | 日期 | 版本 | 说明 |
 |---|---|---|
 | 2026-05-11 | 0.1 | 初版，用户确认目标用户=小学生、编程=Python、LLM=DeepSeek、部署流程=教师审批后至 Pi |
+- 2026-05-17  §3.5    Add hip flexion ROM hard-limit clause (target 75° + margin 5° = 80°). Source: chore/p1-spec-reconcile.
+- 2026-05-17  §3.5.3  Walk amplitude fixed at 25°, locked by decision 0001-walk-amplitude-25deg. Source: chore/p1-spec-reconcile.
+- 2026-05-17  §3.5.4  Rewrite strategy space as two-axis model (intensity L1..L5 + quality bad_phase/reverse), total 7. See decision 0002-strategy-space-two-axes. Source: chore/p1-spec-reconcile.

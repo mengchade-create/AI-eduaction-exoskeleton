@@ -15,3 +15,16 @@ PR #7 测试参考帧已基于 25° 重算，回滚成本大于收益。
 - 新基线起点为 main（即 PR #7 合并后的状态），WALK_HIP_AMPLITUDE_DEG = 25°
 - 后续所有 walk 相关回归基于 25° 进行
 - PR #7 描述与实际行为不一致这一流程问题，由后续 PR 模板修复
+
+---
+
+## Status update (appended by chore/p1-spec-reconcile, 2026-05-17)
+
+Status: Accepted. Rationale codified into SPEC section 3.5.3 by
+chore/p1-spec-reconcile; the original process gap (value not anchored in
+SPEC) is now closed.
+
+Consequences:
+- SPEC section 3.5.3 references this decision as the lock source.
+- No kernel code change: existing Phase 1 implementation already uses 25 degrees.
+- Smoke baselines in PR #10 remain valid.
