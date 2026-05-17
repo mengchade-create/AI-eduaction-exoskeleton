@@ -17,15 +17,17 @@ const HIP_HEIGHT = LEG_LENGTH;
 const HIP_OFFSET_X = 0.09;
 const TORSO_HEIGHT = 0.42;
 const TORSO_CENTER_Y = HIP_HEIGHT + TORSO_HEIGHT / 2;
-const SHOULDER_X = 0.25;
+const SHOULDER_X = 0.21;
 const SHOULDER_Y = HIP_HEIGHT + TORSO_HEIGHT - 0.13;
-const UPPER_ARM_LENGTH = 0.2;
-const FOREARM_LENGTH = 0.14;
+const BELT_TOP_Y = 0.71;
+const HAND_X = 0.1;
+const ELBOW_Y = BELT_TOP_Y;
+const UPPER_ARM_LENGTH = SHOULDER_Y - ELBOW_Y;
+const FOREARM_LENGTH = SHOULDER_X - HAND_X;
 const MOTOR_OFFSET_X = 0.23;
 const THIGH_STRAP_Y = -LEG_LENGTH * 0.15;
 const THIGH_STRAP_HEIGHT = 0.08;
 const ROD_A_LENGTH = 0.1;
-const ROD_B_LENGTH = 0.13;
 const ROD_RADIUS = 0.018;
 
 const headColor = "#fde68a";
@@ -58,13 +60,13 @@ function Leg({ hipDeg, side }: LegProps) {
   const clampedDeg = clampHipDeg(hipDeg);
   const materialColor = isAtRomLimit(clampedDeg) ? limitColor : legColor;
   const x = side === "left" ? -HIP_OFFSET_X : HIP_OFFSET_X;
-  const rodX = side === "left" ? -0.055 : 0.055;
+  const rodX = side === "left" ? -0.02 : 0.02;
   const name = side === "left" ? "rig-left-leg" : "rig-right-leg";
 
   return (
     <group name={name} position={[x, HIP_HEIGHT, 0]} rotation={[degToRad(clampedDeg), 0, 0]}>
-      <mesh position={[rodX, -ROD_B_LENGTH / 2, 0]}>
-        <cylinderGeometry args={[ROD_RADIUS, ROD_RADIUS, ROD_B_LENGTH, 12]} />
+      <mesh position={[rodX, -0.06, 0]} rotation={[0, 0, 0]}>
+        <cylinderGeometry args={[0.018, 0.018, 0.12, 12]} />
         <meshStandardMaterial color={rodColor} />
       </mesh>
       <RoundedBox args={[0.15, THIGH_STRAP_HEIGHT, 0.15]} position={[0, THIGH_STRAP_Y, 0]} radius={0.02} smoothness={3}>
@@ -86,30 +88,26 @@ interface ArmProps {
 
 function Arm({ side }: ArmProps) {
   const isLeft = side === "left";
-  const x = isLeft ? SHOULDER_X : -SHOULDER_X;
-  const forearmRotationZ = isLeft ? Math.PI / 2 : -Math.PI / 2;
+  const shoulderX = isLeft ? SHOULDER_X : -SHOULDER_X;
+  const handX = isLeft ? HAND_X : -HAND_X;
   const name = isLeft ? "rig-left-arm" : "rig-right-arm";
 
   return (
-    <group name={name} position={[x, SHOULDER_Y, 0]}>
-      <RoundedBox args={[0.09, UPPER_ARM_LENGTH, 0.09]} position={[0, -UPPER_ARM_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
+    <group name={name}>
+      <RoundedBox args={[0.09, UPPER_ARM_LENGTH, 0.09]} position={[shoulderX, (SHOULDER_Y + ELBOW_Y) / 2, 0]} radius={0.02} smoothness={3}>
         <meshStandardMaterial color={torsoColor} />
       </RoundedBox>
-      <group position={[0, -UPPER_ARM_LENGTH, 0]}>
-        <mesh>
-          <sphereGeometry args={[0.05, 18, 12]} />
-          <meshStandardMaterial color={torsoColor} />
-        </mesh>
-        <group rotation={[0, 0, forearmRotationZ]}>
-          <RoundedBox args={[0.085, FOREARM_LENGTH, 0.085]} position={[0, FOREARM_LENGTH / 2, 0]} radius={0.022} smoothness={3}>
-            <meshStandardMaterial color={torsoColor} />
-          </RoundedBox>
-          <mesh position={[0, FOREARM_LENGTH, 0]}>
-            <sphereGeometry args={[0.06, 20, 14]} />
-            <meshStandardMaterial color={headColor} />
-          </mesh>
-        </group>
-      </group>
+      <mesh position={[shoulderX, ELBOW_Y, 0]}>
+        <sphereGeometry args={[0.05, 16, 16]} />
+        <meshStandardMaterial color={torsoColor} />
+      </mesh>
+      <RoundedBox args={[FOREARM_LENGTH, 0.085, 0.085]} position={[(shoulderX + handX) / 2, ELBOW_Y, 0]} radius={0.02} smoothness={3}>
+        <meshStandardMaterial color={torsoColor} />
+      </RoundedBox>
+      <mesh position={[handX, ELBOW_Y, 0]}>
+        <sphereGeometry args={[0.06, 16, 16]} />
+        <meshStandardMaterial color={headColor} />
+      </mesh>
     </group>
   );
 }
