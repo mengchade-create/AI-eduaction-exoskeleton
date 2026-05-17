@@ -19,7 +19,7 @@ const HIP_HEIGHT = LEG_LENGTH;
 const HIP_OFFSET_X = 0.09;
 const TORSO_HEIGHT = 0.42;
 const TORSO_CENTER_Y = HIP_HEIGHT + TORSO_HEIGHT / 2;
-const SHOULDER_X = 0.21;
+const SHOULDER_X = 0.19;
 const SHOULDER_Y = HIP_HEIGHT + TORSO_HEIGHT - 0.13;
 const ARM_LENGTH = 0.34;
 const ARM_ANGLE_RAD = Math.PI / 4;
@@ -104,6 +104,10 @@ function Arm({ side }: ArmProps) {
 
   return (
     <group name={name} position={[shoulderX, SHOULDER_Y, 0]} rotation={[0, 0, rotationZ]}>
+      <mesh>
+        <sphereGeometry args={[0.055, 18, 14]} />
+        <meshStandardMaterial color={torsoColor} />
+      </mesh>
       <RoundedBox args={[0.09, ARM_LENGTH, 0.09]} position={[0, -ARM_LENGTH / 2, 0]} radius={0.02} smoothness={3}>
         <meshStandardMaterial color={torsoColor} />
       </RoundedBox>
