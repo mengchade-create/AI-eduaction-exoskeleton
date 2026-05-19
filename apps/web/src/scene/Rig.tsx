@@ -4,16 +4,22 @@ import { useMemo } from "react";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 
+import { DEFAULT_PASSIVE_JOINTS, type PassiveJointAngles } from "./passiveJoints";
+
 export interface RigProps {
   /** Left hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
   leftHipDeg?: number;
   /** Right hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
   rightHipDeg?: number;
+  /** SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control. */
+  passiveJoints?: PassiveJointAngles;
 }
 
 const HIP_ROM_LIMIT_DEG = 80;
 const DEG_TO_RAD = Math.PI / 180;
-const LEG_LENGTH = 0.62;
+const THIGH_LENGTH = 0.31;
+const SHANK_LENGTH = 0.31;
+const LEG_LENGTH = THIGH_LENGTH + SHANK_LENGTH;
 const FOOT_HEIGHT = 0.06;
 const HIP_HEIGHT = LEG_LENGTH;
 const HIP_OFFSET_X = 0.09;
@@ -54,10 +60,12 @@ function degToRad(deg: number): number {
 
 interface LegProps {
   hipDeg: number;
+  kneeRad: number;
+  ankleRad: number;
   side: "left" | "right";
 }
 
-function Leg({ hipDeg, side }: LegProps) {
+function Leg({ hipDeg, kneeRad, ankleRad, side }: LegProps) {
   const clampedDeg = clampHipDeg(hipDeg);
   const materialColor = isAtRomLimit(clampedDeg) ? limitColor : legColor;
   const x = side === "left" ? -HIP_OFFSET_X : HIP_OFFSET_X;
@@ -82,12 +90,21 @@ function Leg({ hipDeg, side }: LegProps) {
       <RoundedBox args={[0.15, THIGH_STRAP_HEIGHT, 0.15]} position={[0, THIGH_STRAP_Y, 0]} radius={0.02} smoothness={3}>
         <meshStandardMaterial color={exoColor} />
       </RoundedBox>
-      <RoundedBox args={[0.13, LEG_LENGTH, 0.13]} position={[0, -LEG_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
+      <RoundedBox args={[0.13, THIGH_LENGTH, 0.13]} position={[0, -THIGH_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
         <meshStandardMaterial color={materialColor} />
       </RoundedBox>
-      <RoundedBox args={[0.22, FOOT_HEIGHT, 0.28]} position={[0, -LEG_LENGTH + FOOT_HEIGHT / 2, -0.06]} radius={0.02} smoothness={3}>
-        <meshStandardMaterial color={footColor} />
-      </RoundedBox>
+      {/* SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control. */}
+      {/* Knee flexion is positive, but this rig's local +X maps to forward swing. */}
+      <group name={side === "left" ? "rig-left-knee-passive" : "rig-right-knee-passive"} position={[0, -THIGH_LENGTH, 0]} rotation={[-kneeRad, 0, 0]}>
+        <RoundedBox args={[0.12, SHANK_LENGTH, 0.12]} position={[0, -SHANK_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
+          <meshStandardMaterial color={materialColor} />
+        </RoundedBox>
+        <group name={side === "left" ? "rig-left-ankle-passive" : "rig-right-ankle-passive"} position={[0, -SHANK_LENGTH, 0]} rotation={[ankleRad, 0, 0]}>
+          <RoundedBox args={[0.22, FOOT_HEIGHT, 0.28]} position={[0, FOOT_HEIGHT / 2, -0.06]} radius={0.02} smoothness={3}>
+            <meshStandardMaterial color={footColor} />
+          </RoundedBox>
+        </group>
+      </group>
     </group>
   );
 }
@@ -119,7 +136,7 @@ function Arm({ side }: ArmProps) {
   );
 }
 
-export default function Rig({ leftHipDeg = 0, rightHipDeg = 0 }: RigProps) {
+export default function Rig({ leftHipDeg = 0, rightHipDeg = 0, passiveJoints = DEFAULT_PASSIVE_JOINTS }: RigProps) {
   return (
     <group name="rig-root">
       <group name="rig-upper">
@@ -144,8 +161,8 @@ export default function Rig({ leftHipDeg = 0, rightHipDeg = 0 }: RigProps) {
         <Arm side="left" />
         <Arm side="right" />
       </group>
-      <Leg hipDeg={leftHipDeg} side="left" />
-      <Leg hipDeg={rightHipDeg} side="right" />
+      <Leg ankleRad={passiveJoints.leftAnkle} hipDeg={leftHipDeg} kneeRad={passiveJoints.leftKnee} side="left" />
+      <Leg ankleRad={passiveJoints.rightAnkle} hipDeg={rightHipDeg} kneeRad={passiveJoints.rightKnee} side="right" />
     </group>
   );
 }
