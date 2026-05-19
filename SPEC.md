@@ -8,7 +8,19 @@
 
 ### 0.1 目标用户：小学生
 本平台服务于 **K-12（以小学生为主）** 的外骨骼教学场景。**所有 UI、文案、交互、错误提示都必须面向小学生**：
-> **硬件范围约束（全项目贯穿）**：本外骨骼**仅包含左髋、右髋两个主动关节**，**不含膝关节、踝关节**。所有代码、仿真模型、UI 展示、数据采集均以 2 自由度（L_hip, R_hip）为准。任何涉及膝/踝的逻辑都属于越界实现，一律不接受。
+> **硬件范围约束（全项目贯穿）**：
+>
+> (a) 外骨骼主动关节（active joints）：本外骨骼硬件仅包含左髋、右髋两个主动关节，不含膝关节、踝关节。所有外骨骼控制代码、§3.5 仿真控制环、TelemetryFrame 信号通道、Dashboard 数据展示、真机数据采集、classifier 特征均以 2 主动自由度（L_hip / R_hip）为准。
+>
+> (b) 人偶被动关节（passive joints）：为支持教学动作播放（深蹲、坐起等），3D 可视化中的人偶骨架可以包含运动学被动关节（左右膝、左右踝），仅用于动画渲染。被动关节必须满足：
+>
+> - 不出现在 TelemetryFrame.joints schema 中（§3.2 仍仅含 left_hip / right_hip）
+> - 不接入 §3.5 任何方程（HumanIntentModel / HumanTorqueModel / JointDynamics / FatigueModel / StrategyScorer 全部仅作用于髋）
+> - 不作为 V1 classifier 特征（§5 Phase 5 特征工程仍仅基于髋信号）
+> - 不对应任何真机硬件 actuator，Phase 4 RealExoDevice 与 pi-agent 不得为被动关节产生任何 CAN 帧
+> - 由 ActionTemplate 内部以纯运动学函数方式驱动（如 squat 模板在 sim 内部计算并写入人偶骨架的膝角，但该膝角不进入 telemetry、不进入控制环）
+>
+> (c) 越界禁止：任何把膝/踝实现为主动关节的代码（出现在 telemetry 信号、控制环、tau_human / tau_exo、StrategyScorer、classifier 特征、真机 actuator 中任意一处）一律拒收。被动关节的存在不构成 §6.5 违规，前提是严格满足 (b) 的全部约束。
 - 使用**大按钮、圆角、明亮色彩、卡通插画**
 - 禁用专业术语直接暴露给学生（如 "telemetry"、"PID"、"torque"），统一用中文友好词（"实时数据"、"用力大小"）
 - 错误提示不说 "Error 500"，改说 "小外外累了，休息一下再试试 🤖"
@@ -246,6 +258,8 @@ class IExoDevice(ABC):
 
 ### 3.2 Telemetry 数据帧（强制 schema）
 
+关节字段约束：JointAngles schema 永久仅含 left_hip / right_hip 两个字段，禁止扩充膝/踝字段。人偶可视化骨架的被动关节角度不进入此 schema（详见 §0.1(b)）。任何修改 JointAngles 增加 knee/ankle 的 PR 一律拒收。
+
 ```python
 # apps/api/app/schemas/device.py
 from pydantic import BaseModel
@@ -375,6 +389,9 @@ q, dq  ────┘                                            │
                                  tau_human ──► [FatigueModel] ──► E, P
                                                         │
                           q, dq, q_ref, tau_human ──► [StrategyScorer] ──► score
+
+关节作用域（joint scope）说明：§3.5 交互模型中的所有变量（q、q_ref、tau_human、tau_exo、E、P）及所有子模块（HumanIntentModel / HumanTorqueModel / JointDynamics / FatigueModel / StrategyScorer）仅作用于左右髋 2 个主动关节。可视化层面播放 squat / sit_to_stand 等含膝踝动画时，人偶骨架的膝、踝角度由对应 ActionTemplate 以预设运动学曲线直接生成并写入渲染骨架，不进入 §3.5 任何方程，也不进入 TelemetryFrame。该约束由 §0.1(b) 保证。
+
 #### 3.5.3 各子模块定义
 
 **HumanIntentModel**
@@ -965,7 +982,7 @@ theme: {
 - ❌ 把不同 Phase 的任务混在一个 PR 里
 - ❌ 在不读 `reference/` 的情况下动 Phase 4
 - ❌ 在 Phase 4 中按"通用 CAN 协议"或手册想当然地重写 USB-CAN 通信和电机编解码（本硬件有特殊编码方式，必须复用 `reference/rpi-legacy/` 中已跑通的实现）
-- ❌ 在 V1 代码、仿真模型、UI 中出现膝关节、踝关节相关的任何实现（本外骨骼只有左右髋 2 个主动关节）
+- ❌ 在 V1 中将膝关节、踝关节实现为主动关节（即出现在 TelemetryFrame 信号、§3.5 控制环、tau_human / tau_exo、StrategyScorer、classifier 特征、真机 actuator 中任意一处）。膝/踝仅可作为人偶可视化骨架的运动学被动关节存在，且仅由 ActionTemplate 内部驱动，详见 §0.1(b)。被动关节实现若违反 §0.1(b) 任一条款，等同越界。
 - ❌ 在 V1 中采集、处理、展示 IMU / 足底压力 / 肌电等非 encoder 信号（V1 范围仅限 encoder 的角度、角速度，以及下发的目标扭矩）
 - ❌ 在未经人类确认的情况下，擅自把 §3.5 的简化交互模型替换为真实物理引擎（MuJoCo / PyBullet / Gazebo 等）。V1 明确采用简化模型，替换需走 MAJOR 版本升级流程并更新本 SPEC
 - ❌ 在未经人类确认的情况下，擅自调整 §3.5.4 五档策略的默认参数或评分权重，导致"评分单调性"测试失效
@@ -1247,3 +1264,4 @@ VITE_WS_BASE=ws://localhost:8000
 - 2026-05-17  §3.5    Add hip flexion ROM hard-limit clause (target 75° + margin 5° = 80°). Source: chore/p1-spec-reconcile.
 - 2026-05-17  §3.5.3  Walk amplitude fixed at 25°, locked by decision 0001-walk-amplitude-25deg. Source: chore/p1-spec-reconcile.
 - 2026-05-17  §3.5.4  Rewrite strategy space as two-axis model (intensity L1..L5 + quality bad_phase/reverse), total 7. See decision 0002-strategy-space-two-axes. Source: chore/p1-spec-reconcile.
+- 2026-05-19  §0.1 / §3.2 / §3.5.2 / §6.5  Distinguish active exo joints (hip-only, hardware) from passive avatar joints (knee/ankle, visualization-only). Passive joints are confined to ActionTemplate kinematic animation; they are excluded from TelemetryFrame, §3.5 control loop, StrategyScorer, classifier features, and real-device actuators. Source: docs/spec-active-vs-passive-joints.
