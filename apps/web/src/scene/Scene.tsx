@@ -1,7 +1,8 @@
 import { OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
+import type { ReactNode } from "react";
 
-export default function Scene() {
+export default function Scene({ children }: { children?: ReactNode }) {
   return (
     <Canvas
       className="h-full w-full"
@@ -16,6 +17,7 @@ export default function Scene() {
       <directionalLight position={[5, 10, 5]} intensity={0.8} />
       <gridHelper args={[10, 10]} />
       <axesHelper args={[2]} />
+      {children}
       <OrbitControls />
     </Canvas>
   );
