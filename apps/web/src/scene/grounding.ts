@@ -19,6 +19,44 @@ export function computeFootY(leg: LegAngles, geom: LegGeometry): number {
   return thighDropY + shinDropY + footDropY;
 }
 
+export function computeFootX(leg: LegAngles, geom: LegGeometry): number {
+  const hipAngle = leg.hip;
+  const shinAngle = leg.hip - leg.knee;
+
+  const thighForwardX = geom.thighLength * Math.sin(hipAngle);
+  const shinForwardX = geom.shinLength * Math.sin(shinAngle);
+  const footForwardX = geom.footHeight * Math.sin(shinAngle - leg.ankle);
+
+  return thighForwardX + shinForwardX + footForwardX;
+}
+
+export function computePelvisOffsetX(
+  leftLeg: LegAngles,
+  rightLeg: LegAngles,
+  stance: StanceFoot,
+  geom: LegGeometry,
+  restFootX: number,
+): number {
+  const footXL = computeFootX(leftLeg, geom);
+  const footXR = computeFootX(rightLeg, geom);
+
+  let groundRefX: number;
+  switch (stance) {
+    case "left":
+      groundRefX = footXL;
+      break;
+    case "right":
+      groundRefX = footXR;
+      break;
+    case "both":
+    default:
+      groundRefX = (footXL + footXR) / 2;
+      break;
+  }
+
+  return restFootX - groundRefX;
+}
+
 export function computePelvisOffsetY(
   leftLeg: LegAngles,
   rightLeg: LegAngles,

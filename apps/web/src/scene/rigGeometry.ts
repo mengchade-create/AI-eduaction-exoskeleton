@@ -17,3 +17,5 @@ export const REST_FOOT_Y = -(
   + RIG_GEOMETRY.shinLength
   + RIG_GEOMETRY.footHeight
 );
+
+export const REST_FOOT_X = 0;

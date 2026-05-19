@@ -5,8 +5,8 @@ import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 
 import { DEFAULT_PASSIVE_JOINTS, type PassiveJointAngles } from "./passiveJoints";
-import { computePelvisOffsetY, type StanceFoot } from "./grounding";
-import { FOOT_BOX_HEIGHT, REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
+import { computePelvisOffsetX, computePelvisOffsetY, type StanceFoot } from "./grounding";
+import { FOOT_BOX_HEIGHT, REST_FOOT_X, REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
 
 export interface RigProps {
   /** Left hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
@@ -159,9 +159,24 @@ export default function Rig({
     RIG_GEOMETRY,
     REST_FOOT_Y,
   );
+  const pelvisOffsetX = computePelvisOffsetX(
+    {
+      hip: degToRad(clampHipDeg(leftHipDeg)),
+      knee: passiveJoints.leftKnee,
+      ankle: passiveJoints.leftAnkle,
+    },
+    {
+      hip: degToRad(clampHipDeg(rightHipDeg)),
+      knee: passiveJoints.rightKnee,
+      ankle: passiveJoints.rightAnkle,
+    },
+    stance,
+    RIG_GEOMETRY,
+    REST_FOOT_X,
+  );
 
   return (
-    <group name="rig-grounding" position={[0, pelvisOffsetY, 0]}>
+    <group name="rig-grounding" position={[pelvisOffsetX, pelvisOffsetY, 0]}>
       <group name="rig-root">
         <group name="rig-upper">
           <RoundedBox args={[0.32, TORSO_HEIGHT, 0.22]} position={[0, TORSO_CENTER_Y, 0]} radius={0.04} smoothness={3}>

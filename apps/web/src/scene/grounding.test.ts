@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { computeFootY, computePelvisOffsetY, type LegAngles } from "./grounding";
-import { REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
+import { computeFootX, computeFootY, computePelvisOffsetX, computePelvisOffsetY, type LegAngles } from "./grounding";
+import { REST_FOOT_X, REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
 
 const DEG_TO_RAD = Math.PI / 180;
 
@@ -57,5 +57,78 @@ describe("FK rig grounding", () => {
     const rightOffset = computePelvisOffsetY(leftSlightlyBent, rightDeepBent, "right", RIG_GEOMETRY, REST_FOOT_Y);
 
     expect(bothOffset).toBeCloseTo(rightOffset, 9);
+  });
+});
+
+describe("computePelvisOffsetX", () => {
+  it("keeps standing pelvis X offset at zero", () => {
+    expect(computePelvisOffsetX(standingLeg, standingLeg, "both", RIG_GEOMETRY, REST_FOOT_X)).toBeCloseTo(0, 9);
+  });
+
+  it("moves the pelvis backward for the squat midpoint", () => {
+    const squatMidLeg: LegAngles = {
+      hip: 70 * DEG_TO_RAD,
+      knee: 90 * DEG_TO_RAD,
+      ankle: 15 * DEG_TO_RAD,
+    };
+    const pelvisOffsetX = computePelvisOffsetX(squatMidLeg, squatMidLeg, "both", RIG_GEOMETRY, REST_FOOT_X);
+
+    expect(pelvisOffsetX).toBeLessThan(0);
+    expect(pelvisOffsetX).toBeGreaterThanOrEqual(-0.4);
+    expect(pelvisOffsetX).toBeLessThanOrEqual(-0.05);
+  });
+
+  it("uses only the left foot in left-foot stance", () => {
+    const leftBentLeg: LegAngles = {
+      hip: 45 * DEG_TO_RAD,
+      knee: 60 * DEG_TO_RAD,
+      ankle: 10 * DEG_TO_RAD,
+    };
+    const rightFirstPose: LegAngles = {
+      hip: 10 * DEG_TO_RAD,
+      knee: 20 * DEG_TO_RAD,
+      ankle: 0,
+    };
+    const rightSecondPose: LegAngles = {
+      hip: 80 * DEG_TO_RAD,
+      knee: 140 * DEG_TO_RAD,
+      ankle: 25 * DEG_TO_RAD,
+    };
+
+    const firstOffset = computePelvisOffsetX(leftBentLeg, rightFirstPose, "left", RIG_GEOMETRY, REST_FOOT_X);
+    const secondOffset = computePelvisOffsetX(leftBentLeg, rightSecondPose, "left", RIG_GEOMETRY, REST_FOOT_X);
+
+    expect(firstOffset).toBeCloseTo(secondOffset, 9);
+  });
+
+  it("matches single-foot X offset for symmetric both-feet stance", () => {
+    const symmetricBentLeg: LegAngles = {
+      hip: 70 * DEG_TO_RAD,
+      knee: 90 * DEG_TO_RAD,
+      ankle: 15 * DEG_TO_RAD,
+    };
+    const bothOffset = computePelvisOffsetX(symmetricBentLeg, symmetricBentLeg, "both", RIG_GEOMETRY, REST_FOOT_X);
+    const leftOffset = computePelvisOffsetX(symmetricBentLeg, symmetricBentLeg, "left", RIG_GEOMETRY, REST_FOOT_X);
+
+    expect(bothOffset).toBeCloseTo(leftOffset, 9);
+  });
+});
+
+describe("computeFootX", () => {
+  it("returns zero for all-zero angles", () => {
+    expect(computeFootX(standingLeg, RIG_GEOMETRY)).toBeCloseTo(0, 9);
+  });
+
+  it("projects thigh and shin forward for hip-only 90 degree flexion", () => {
+    const hipOnlyFlexedLeg: LegAngles = {
+      hip: Math.PI / 2,
+      knee: 0,
+      ankle: 0,
+    };
+
+    expect(computeFootX(hipOnlyFlexedLeg, RIG_GEOMETRY)).toBeCloseTo(
+      RIG_GEOMETRY.thighLength + RIG_GEOMETRY.shinLength,
+      9,
+    );
   });
 });
