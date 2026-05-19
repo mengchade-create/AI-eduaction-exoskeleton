@@ -1,4 +1,5 @@
 import {
+  clampUnitInterval,
   clampPassiveJointAngles,
   linearInterpolateKeyframes,
   type ActionFrame,
@@ -25,11 +26,13 @@ export const squatTemplate: ActionTemplate = {
   id: "squat",
   durationMs: 2000,
   sample(t: number): ActionFrame {
+    const clampedT = clampUnitInterval(t);
     const sampleDeg = linearInterpolateKeyframes(squatKeyframesDeg, t);
     const kneeRad = sampleDeg.knee * DEG_TO_RAD;
     const ankleRad = sampleDeg.ankle * DEG_TO_RAD;
 
     return {
+      t: clampedT,
       active: {
         left_hip: sampleDeg.hip,
         right_hip: sampleDeg.hip,
@@ -40,6 +43,7 @@ export const squatTemplate: ActionTemplate = {
         leftAnkle: ankleRad,
         rightAnkle: ankleRad,
       }),
+      stance: "both",
     };
   },
 };

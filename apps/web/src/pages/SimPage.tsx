@@ -25,6 +25,7 @@ export default function SimPage() {
   const renderedRightHipDeg = isPlaying ? currentFrame.active.right_hip : rightHipDeg;
   // SPEC §0.1(b): passive channel is animation-only and never enters telemetry or control.
   const renderedPassiveJoints = isPlaying ? currentFrame.passive : passiveJoints;
+  const renderedStance = isPlaying ? currentFrame.stance : "both";
   const updateLeftHip = (event: ChangeEvent<HTMLInputElement>) => {
     setLeftHipDeg(Number(event.currentTarget.value));
   };
@@ -77,7 +78,12 @@ export default function SimPage() {
       <div className="flex min-h-0 flex-1">
         <section className="min-h-0 flex-[7] [&_canvas]:!h-full [&_canvas]:!w-full">
           <Scene>
-            <Rig leftHipDeg={renderedLeftHipDeg} passiveJoints={renderedPassiveJoints} rightHipDeg={renderedRightHipDeg} />
+            <Rig
+              leftHipDeg={renderedLeftHipDeg}
+              passiveJoints={renderedPassiveJoints}
+              rightHipDeg={renderedRightHipDeg}
+              stance={renderedStance}
+            />
           </Scene>
         </section>
         {isDev ? (

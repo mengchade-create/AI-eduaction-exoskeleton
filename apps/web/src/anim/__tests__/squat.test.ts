@@ -15,6 +15,7 @@ function expectNeutralFrame(t: number) {
   expect(frame.passive.rightKnee).toBe(0);
   expect(frame.passive.leftAnkle).toBe(0);
   expect(frame.passive.rightAnkle).toBe(0);
+  expect(frame.stance).toBe("both");
 }
 
 function expectFrameWithinPassiveLimits(t: number) {
@@ -40,6 +41,7 @@ describe("squatTemplate", () => {
     expect(frame.passive.rightKnee).toBeCloseTo(90 * DEG_TO_RAD, 3);
     expect(frame.passive.leftAnkle).toBeCloseTo(15 * DEG_TO_RAD, 3);
     expect(frame.passive.rightAnkle).toBeCloseTo(15 * DEG_TO_RAD, 3);
+    expect(frame.stance).toBe("both");
   });
 
   it("samples standing pose at t=1", () => {

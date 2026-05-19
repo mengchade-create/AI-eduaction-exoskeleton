@@ -15,6 +15,10 @@ export default function Scene({ children }: { children?: ReactNode }) {
       <color attach="background" args={["#e0f2fe"]} />
       <ambientLight intensity={0.6} />
       <directionalLight position={[5, 10, 5]} intensity={0.8} />
+      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[1, 1]} />
+        <meshStandardMaterial color="#94a3b8" opacity={0.28} transparent />
+      </mesh>
       <gridHelper args={[10, 10]} />
       <axesHelper args={[2]} />
       {children}

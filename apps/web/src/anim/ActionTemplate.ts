@@ -3,6 +3,7 @@ import {
   setPassiveJoint,
   type PassiveJointAngles,
 } from "../scene/passiveJoints";
+import type { StanceFoot } from "../scene/grounding";
 
 export type ActiveJointAngles = {
   left_hip: number;
@@ -10,8 +11,10 @@ export type ActiveJointAngles = {
 };
 
 export type ActionFrame = {
+  t: number;
   active: ActiveJointAngles;
   passive: PassiveJointAngles;
+  stance: StanceFoot;
 };
 
 // SPEC §0.1(b) / §3.5.2: ActionTemplate drives active hips plus passive avatar joints without telemetry/control-loop coupling.
