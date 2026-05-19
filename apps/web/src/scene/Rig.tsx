@@ -94,7 +94,8 @@ function Leg({ hipDeg, kneeRad, ankleRad, side }: LegProps) {
         <meshStandardMaterial color={materialColor} />
       </RoundedBox>
       {/* SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control. */}
-      <group name={side === "left" ? "rig-left-knee-passive" : "rig-right-knee-passive"} position={[0, -THIGH_LENGTH, 0]} rotation={[kneeRad, 0, 0]}>
+      {/* Knee flexion is positive, but this rig's local +X maps to forward swing. */}
+      <group name={side === "left" ? "rig-left-knee-passive" : "rig-right-knee-passive"} position={[0, -THIGH_LENGTH, 0]} rotation={[-kneeRad, 0, 0]}>
         <RoundedBox args={[0.12, SHANK_LENGTH, 0.12]} position={[0, -SHANK_LENGTH / 2, 0]} radius={0.025} smoothness={3}>
           <meshStandardMaterial color={materialColor} />
         </RoundedBox>
