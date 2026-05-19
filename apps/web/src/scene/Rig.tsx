@@ -159,7 +159,10 @@ export default function Rig({
     RIG_GEOMETRY,
     REST_FOOT_Y,
   );
-  const pelvisOffsetX = computePelvisOffsetX(
+  // computePelvisOffsetX uses footX = +L*sin(theta), but this rig rotates hips
+  // around world X, so the real displacement is on Z and footZ = -L*sin(theta).
+  // Keep the grounding helper names for now; a later cleanup can rename them to Z.
+  const pelvisOffsetZ = -computePelvisOffsetX(
     {
       hip: degToRad(clampHipDeg(leftHipDeg)),
       knee: passiveJoints.leftKnee,
@@ -176,7 +179,7 @@ export default function Rig({
   );
 
   return (
-    <group name="rig-grounding" position={[pelvisOffsetX, pelvisOffsetY, 0]}>
+    <group name="rig-grounding" position={[0, pelvisOffsetY, pelvisOffsetZ]}>
       <group name="rig-root">
         <group name="rig-upper">
           <RoundedBox args={[0.32, TORSO_HEIGHT, 0.22]} position={[0, TORSO_CENTER_Y, 0]} radius={0.04} smoothness={3}>
