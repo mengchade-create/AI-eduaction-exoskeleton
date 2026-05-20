@@ -5,8 +5,8 @@ import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 
 import { DEFAULT_PASSIVE_JOINTS, type PassiveJointAngles } from "./passiveJoints";
-import { computePelvisOffsetX, computePelvisOffsetY, type StanceFoot } from "./grounding";
-import { FOOT_BOX_HEIGHT, REST_FOOT_X, REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
+import { computePelvisOffsetSagittal, computePelvisOffsetY, type StanceFoot } from "./grounding";
+import { FOOT_BOX_HEIGHT, REST_FOOT_SAGITTAL, REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
 
 export interface RigProps {
   /** Left hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
@@ -159,10 +159,8 @@ export default function Rig({
     RIG_GEOMETRY,
     REST_FOOT_Y,
   );
-  // computePelvisOffsetX uses footX = +L*sin(theta), but this rig rotates hips
-  // around world X, so the real displacement is on Z and footZ = -L*sin(theta).
-  // Keep the grounding helper names for now; a later cleanup can rename them to Z.
-  const pelvisOffsetZ = -computePelvisOffsetX(
+  // sagittal forward displacement -> -Z in scene (hip rotates around X axis)
+  const pelvisOffsetZ = -computePelvisOffsetSagittal(
     {
       hip: degToRad(clampHipDeg(leftHipDeg)),
       knee: passiveJoints.leftKnee,
@@ -175,7 +173,7 @@ export default function Rig({
     },
     stance,
     RIG_GEOMETRY,
-    REST_FOOT_X,
+    REST_FOOT_SAGITTAL,
   );
 
   return (

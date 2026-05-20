@@ -1,5 +1,17 @@
 import type { LegGeometry } from "./rigGeometry";
 
+/**
+ * Grounding math utilities operate in the **sagittal plane** (forward/back
+ * displacement of the body in its own frame of reference). They are
+ * intentionally axis-agnostic and do not know about three.js axes.
+ *
+ * Mapping to scene coordinates is the Rig layer's responsibility:
+ * because hip rotation in Rig.tsx is applied as `rotation={[theta, 0, 0]}`
+ * (rotation around the X axis), forward/back displacement falls on the
+ * **Z axis** of the scene, with a sign flip. See Rig.tsx for the
+ * `pelvisOffsetZ = -computePelvisOffsetSagittal(...)` conversion.
+ */
+
 export type StanceFoot = "both" | "left" | "right";
 
 export type LegAngles = {
@@ -19,7 +31,7 @@ export function computeFootY(leg: LegAngles, geom: LegGeometry): number {
   return thighDropY + shinDropY + footDropY;
 }
 
-export function computeFootX(leg: LegAngles, geom: LegGeometry): number {
+export function computeFootSagittal(leg: LegAngles, geom: LegGeometry): number {
   const hipAngle = leg.hip;
   const shinAngle = leg.hip - leg.knee;
 
@@ -30,31 +42,31 @@ export function computeFootX(leg: LegAngles, geom: LegGeometry): number {
   return thighForwardX + shinForwardX + footForwardX;
 }
 
-export function computePelvisOffsetX(
+export function computePelvisOffsetSagittal(
   leftLeg: LegAngles,
   rightLeg: LegAngles,
   stance: StanceFoot,
   geom: LegGeometry,
-  restFootX: number,
+  restFootSagittal: number,
 ): number {
-  const footXL = computeFootX(leftLeg, geom);
-  const footXR = computeFootX(rightLeg, geom);
+  const footLeft = computeFootSagittal(leftLeg, geom);
+  const footRight = computeFootSagittal(rightLeg, geom);
 
-  let groundRefX: number;
+  let groundRefSagittal: number;
   switch (stance) {
     case "left":
-      groundRefX = footXL;
+      groundRefSagittal = footLeft;
       break;
     case "right":
-      groundRefX = footXR;
+      groundRefSagittal = footRight;
       break;
     case "both":
     default:
-      groundRefX = (footXL + footXR) / 2;
+      groundRefSagittal = (footLeft + footRight) / 2;
       break;
   }
 
-  return restFootX - groundRefX;
+  return restFootSagittal - groundRefSagittal;
 }
 
 export function computePelvisOffsetY(

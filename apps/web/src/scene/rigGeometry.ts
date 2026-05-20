@@ -18,4 +18,4 @@ export const REST_FOOT_Y = -(
   + RIG_GEOMETRY.footHeight
 );
 
-export const REST_FOOT_X = 0;
+export const REST_FOOT_SAGITTAL = 0;
