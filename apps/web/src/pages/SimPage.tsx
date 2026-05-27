@@ -1,22 +1,41 @@
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useEffect, useState } from "react";
+import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 import { squatTemplate } from "../anim/templates/squat";
 import { useActionPlayer } from "../anim/useActionPlayer";
 import Rig from "../scene/Rig";
 import { Scene } from "../scene";
 import { DEFAULT_PASSIVE_JOINTS, setPassiveJoint, type PassiveJointAngles, type PassiveJointName } from "../scene/passiveJoints";
+import { SESSION_DEFAULT_STEP_MS, SimulationSession } from "../simulation/SimulationSession";
+import type { TelemetryFrame } from "../simulation/types";
 
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
+const TELEMETRY_BUFFER_SIZE = 300;
 const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV === true;
+
+type TelemetryChartPoint = {
+  frame: number;
+  timestamp: number;
+  leftHipDeg: number;
+};
 
 function radToDeg(rad: number): number {
   return Math.round(rad * RAD_TO_DEG);
 }
 
+function toTelemetryChartPoint(frame: TelemetryFrame, frameIndex: number): TelemetryChartPoint {
+  return {
+    frame: frameIndex,
+    timestamp: frame.timestamp,
+    leftHipDeg: frame.joints.left_hip,
+  };
+}
+
 export default function SimPage() {
   const [leftHipDeg, setLeftHipDeg] = useState(0);
   const [rightHipDeg, setRightHipDeg] = useState(0);
+  const [telemetryPoints, setTelemetryPoints] = useState<TelemetryChartPoint[]>([]);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
   const [passiveJoints, setPassiveJoints] = useState<PassiveJointAngles>(DEFAULT_PASSIVE_JOINTS);
   const { currentFrame, isPlaying, play, stop } = useActionPlayer(squatTemplate);
@@ -37,6 +56,37 @@ export default function SimPage() {
 
     setPassiveJoints((current) => setPassiveJoint(current, joint, valueRad));
   };
+  useEffect(() => {
+    const session = new SimulationSession({ initialAction: "walk" });
+    let frameIndex = 0;
+    const unsubscribe = session.onTelemetry((frame) => {
+      frameIndex += 1;
+      const nextPoint = toTelemetryChartPoint(frame, frameIndex);
+
+      setTelemetryPoints((current) => {
+        const next = current.length >= TELEMETRY_BUFFER_SIZE
+          ? current.slice(current.length - TELEMETRY_BUFFER_SIZE + 1)
+          : [...current];
+        next.push(nextPoint);
+        return next;
+      });
+    });
+
+    session.start();
+    const intervalId = window.setInterval(() => {
+      session.step(SESSION_DEFAULT_STEP_MS);
+    }, SESSION_DEFAULT_STEP_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+      unsubscribe();
+
+      if (session.getState() === "running" || session.getState() === "paused") {
+        session.stop();
+      }
+    };
+  }, []);
+
   const toggleSquatPlayback = () => {
     setLeftHipDeg(0);
     setRightHipDeg(0);
@@ -142,6 +192,18 @@ export default function SimPage() {
               </div>
 
               <p className="text-sm text-slate-500">这是开发调试面板,PR #14 会接入真实仿真后移除。</p>
+              <div className="border-t border-slate-200 pt-5">
+                <p className="text-sm font-semibold text-slate-700">Raw telemetry: left hip angle</p>
+                <div className="mt-3 h-48">
+                  <ResponsiveContainer height="100%" width="100%">
+                    <LineChart data={telemetryPoints}>
+                      <XAxis dataKey="timestamp" />
+                      <YAxis />
+                      <Line dataKey="leftHipDeg" dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           </aside>
         ) : null}
