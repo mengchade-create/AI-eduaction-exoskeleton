@@ -5,6 +5,8 @@ import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 
 import { DEFAULT_PASSIVE_JOINTS, type PassiveJointAngles } from "./passiveJoints";
+import { computePelvisOffsetSagittal, computePelvisOffsetY, type StanceFoot } from "./grounding";
+import { FOOT_BOX_HEIGHT, REST_FOOT_SAGITTAL, REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
 
 export interface RigProps {
   /** Left hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
@@ -13,15 +15,15 @@ export interface RigProps {
   rightHipDeg?: number;
   /** SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control. */
   passiveJoints?: PassiveJointAngles;
+  stance?: StanceFoot;
 }
 
 const HIP_ROM_LIMIT_DEG = 80;
 const DEG_TO_RAD = Math.PI / 180;
-const THIGH_LENGTH = 0.31;
-const SHANK_LENGTH = 0.31;
+const THIGH_LENGTH = RIG_GEOMETRY.thighLength;
+const SHANK_LENGTH = RIG_GEOMETRY.shinLength;
 const LEG_LENGTH = THIGH_LENGTH + SHANK_LENGTH;
-const FOOT_HEIGHT = 0.06;
-const HIP_HEIGHT = LEG_LENGTH;
+const HIP_HEIGHT = -REST_FOOT_Y;
 const HIP_OFFSET_X = 0.09;
 const TORSO_HEIGHT = 0.42;
 const TORSO_CENTER_Y = HIP_HEIGHT + TORSO_HEIGHT / 2;
@@ -100,7 +102,7 @@ function Leg({ hipDeg, kneeRad, ankleRad, side }: LegProps) {
           <meshStandardMaterial color={materialColor} />
         </RoundedBox>
         <group name={side === "left" ? "rig-left-ankle-passive" : "rig-right-ankle-passive"} position={[0, -SHANK_LENGTH, 0]} rotation={[ankleRad, 0, 0]}>
-          <RoundedBox args={[0.22, FOOT_HEIGHT, 0.28]} position={[0, FOOT_HEIGHT / 2, -0.06]} radius={0.02} smoothness={3}>
+          <RoundedBox args={[0.22, FOOT_BOX_HEIGHT, 0.28]} position={[0, FOOT_BOX_HEIGHT / 2, -0.06]} radius={0.02} smoothness={3}>
             <meshStandardMaterial color={footColor} />
           </RoundedBox>
         </group>
@@ -136,33 +138,72 @@ function Arm({ side }: ArmProps) {
   );
 }
 
-export default function Rig({ leftHipDeg = 0, rightHipDeg = 0, passiveJoints = DEFAULT_PASSIVE_JOINTS }: RigProps) {
+export default function Rig({
+  leftHipDeg = 0,
+  rightHipDeg = 0,
+  passiveJoints = DEFAULT_PASSIVE_JOINTS,
+  stance = "both",
+}: RigProps) {
+  const pelvisOffsetY = computePelvisOffsetY(
+    {
+      hip: degToRad(clampHipDeg(leftHipDeg)),
+      knee: passiveJoints.leftKnee,
+      ankle: passiveJoints.leftAnkle,
+    },
+    {
+      hip: degToRad(clampHipDeg(rightHipDeg)),
+      knee: passiveJoints.rightKnee,
+      ankle: passiveJoints.rightAnkle,
+    },
+    stance,
+    RIG_GEOMETRY,
+    REST_FOOT_Y,
+  );
+  // sagittal forward displacement -> -Z in scene (hip rotates around X axis)
+  const pelvisOffsetZ = -computePelvisOffsetSagittal(
+    {
+      hip: degToRad(clampHipDeg(leftHipDeg)),
+      knee: passiveJoints.leftKnee,
+      ankle: passiveJoints.leftAnkle,
+    },
+    {
+      hip: degToRad(clampHipDeg(rightHipDeg)),
+      knee: passiveJoints.rightKnee,
+      ankle: passiveJoints.rightAnkle,
+    },
+    stance,
+    RIG_GEOMETRY,
+    REST_FOOT_SAGITTAL,
+  );
+
   return (
-    <group name="rig-root">
-      <group name="rig-upper">
-        <RoundedBox args={[0.32, TORSO_HEIGHT, 0.22]} position={[0, TORSO_CENTER_Y, 0]} radius={0.04} smoothness={3}>
-          <meshStandardMaterial color={torsoColor} />
-        </RoundedBox>
-        <mesh position={[0, HIP_HEIGHT + TORSO_HEIGHT + 0.14, 0]}>
-          <sphereGeometry args={[0.16, 28, 18]} />
-          <meshStandardMaterial color={headColor} />
-        </mesh>
-        <RoundedBox args={[0.36, 0.09, 0.24]} position={[0, HIP_HEIGHT + 0.045, 0]} radius={0.025} smoothness={3}>
-          <meshStandardMaterial color={exoColor} />
-        </RoundedBox>
-        <mesh name="motor-left" position={[-MOTOR_OFFSET_X, HIP_HEIGHT, 0]} rotation={[0, 0, Math.PI / 2]} userData={{ role: "motor-left" }}>
-          <cylinderGeometry args={[0.065, 0.065, 0.1, 16]} />
-          <meshStandardMaterial color={motorColor} />
-        </mesh>
-        <mesh name="motor-right" position={[MOTOR_OFFSET_X, HIP_HEIGHT, 0]} rotation={[0, 0, Math.PI / 2]} userData={{ role: "motor-right" }}>
-          <cylinderGeometry args={[0.065, 0.065, 0.1, 16]} />
-          <meshStandardMaterial color={motorColor} />
-        </mesh>
-        <Arm side="left" />
-        <Arm side="right" />
+    <group name="rig-grounding" position={[0, pelvisOffsetY, pelvisOffsetZ]}>
+      <group name="rig-root">
+        <group name="rig-upper">
+          <RoundedBox args={[0.32, TORSO_HEIGHT, 0.22]} position={[0, TORSO_CENTER_Y, 0]} radius={0.04} smoothness={3}>
+            <meshStandardMaterial color={torsoColor} />
+          </RoundedBox>
+          <mesh position={[0, HIP_HEIGHT + TORSO_HEIGHT + 0.14, 0]}>
+            <sphereGeometry args={[0.16, 28, 18]} />
+            <meshStandardMaterial color={headColor} />
+          </mesh>
+          <RoundedBox args={[0.36, 0.09, 0.24]} position={[0, HIP_HEIGHT + 0.045, 0]} radius={0.025} smoothness={3}>
+            <meshStandardMaterial color={exoColor} />
+          </RoundedBox>
+          <mesh name="motor-left" position={[-MOTOR_OFFSET_X, HIP_HEIGHT, 0]} rotation={[0, 0, Math.PI / 2]} userData={{ role: "motor-left" }}>
+            <cylinderGeometry args={[0.065, 0.065, 0.1, 16]} />
+            <meshStandardMaterial color={motorColor} />
+          </mesh>
+          <mesh name="motor-right" position={[MOTOR_OFFSET_X, HIP_HEIGHT, 0]} rotation={[0, 0, Math.PI / 2]} userData={{ role: "motor-right" }}>
+            <cylinderGeometry args={[0.065, 0.065, 0.1, 16]} />
+            <meshStandardMaterial color={motorColor} />
+          </mesh>
+          <Arm side="left" />
+          <Arm side="right" />
+        </group>
+        <Leg ankleRad={passiveJoints.leftAnkle} hipDeg={leftHipDeg} kneeRad={passiveJoints.leftKnee} side="left" />
+        <Leg ankleRad={passiveJoints.rightAnkle} hipDeg={rightHipDeg} kneeRad={passiveJoints.rightKnee} side="right" />
       </group>
-      <Leg ankleRad={passiveJoints.leftAnkle} hipDeg={leftHipDeg} kneeRad={passiveJoints.leftKnee} side="left" />
-      <Leg ankleRad={passiveJoints.rightAnkle} hipDeg={rightHipDeg} kneeRad={passiveJoints.rightKnee} side="right" />
     </group>
   );
 }

@@ -1,5 +1,7 @@
 import { type ChangeEvent, useState } from "react";
 
+import { squatTemplate } from "../anim/templates/squat";
+import { useActionPlayer } from "../anim/useActionPlayer";
 import Rig from "../scene/Rig";
 import { Scene } from "../scene";
 import { DEFAULT_PASSIVE_JOINTS, setPassiveJoint, type PassiveJointAngles, type PassiveJointName } from "../scene/passiveJoints";
@@ -17,6 +19,13 @@ export default function SimPage() {
   const [rightHipDeg, setRightHipDeg] = useState(0);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
   const [passiveJoints, setPassiveJoints] = useState<PassiveJointAngles>(DEFAULT_PASSIVE_JOINTS);
+  const { currentFrame, isPlaying, play, stop } = useActionPlayer(squatTemplate);
+  // SPEC §3.2 / §3.5.2: active hip channel is sampled separately from telemetry/control-loop state.
+  const renderedLeftHipDeg = isPlaying ? currentFrame.active.left_hip : leftHipDeg;
+  const renderedRightHipDeg = isPlaying ? currentFrame.active.right_hip : rightHipDeg;
+  // SPEC §0.1(b): passive channel is animation-only and never enters telemetry or control.
+  const renderedPassiveJoints = isPlaying ? currentFrame.passive : passiveJoints;
+  const renderedStance = isPlaying ? currentFrame.stance : "both";
   const updateLeftHip = (event: ChangeEvent<HTMLInputElement>) => {
     setLeftHipDeg(Number(event.currentTarget.value));
   };
@@ -28,6 +37,18 @@ export default function SimPage() {
 
     setPassiveJoints((current) => setPassiveJoint(current, joint, valueRad));
   };
+  const toggleSquatPlayback = () => {
+    setLeftHipDeg(0);
+    setRightHipDeg(0);
+    setPassiveJoints(DEFAULT_PASSIVE_JOINTS);
+
+    if (isPlaying) {
+      stop();
+      return;
+    }
+
+    play();
+  };
   const passiveSlider = (label: string, joint: PassiveJointName, min: number, max: number) => (
     <label className="block">
       <span className="flex items-baseline justify-between gap-3 text-sm font-semibold text-slate-700">
@@ -36,15 +57,16 @@ export default function SimPage() {
       </span>
       <input
         className="mt-3 w-full accent-orange-500"
+        disabled={isPlaying}
         max={max}
         min={min}
         onChange={updatePassiveJoint(joint)}
         onInput={updatePassiveJoint(joint)}
         step={1}
         type="range"
-        value={radToDeg(passiveJoints[joint])}
+        value={radToDeg(renderedPassiveJoints[joint])}
       />
-      <span className="mt-2 block text-sm tabular-nums text-slate-600">{radToDeg(passiveJoints[joint])}°</span>
+      <span className="mt-2 block text-sm tabular-nums text-slate-600">{radToDeg(renderedPassiveJoints[joint])}°</span>
     </label>
   );
 
@@ -56,7 +78,12 @@ export default function SimPage() {
       <div className="flex min-h-0 flex-1">
         <section className="min-h-0 flex-[7] [&_canvas]:!h-full [&_canvas]:!w-full">
           <Scene>
-            <Rig leftHipDeg={leftHipDeg} passiveJoints={passiveJoints} rightHipDeg={rightHipDeg} />
+            <Rig
+              leftHipDeg={renderedLeftHipDeg}
+              passiveJoints={renderedPassiveJoints}
+              rightHipDeg={renderedRightHipDeg}
+              stance={renderedStance}
+            />
           </Scene>
         </section>
         {isDev ? (
@@ -65,34 +92,45 @@ export default function SimPage() {
             data-testid="dev-debug-panel"
           >
             <div className="space-y-6">
+              <button
+                className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                data-testid="play-squat-btn"
+                onClick={toggleSquatPlayback}
+                type="button"
+              >
+                {isPlaying ? "Stop" : "Play squat"}
+              </button>
+
               <label className="block">
                 <span className="text-sm font-semibold text-slate-700">左髋 (left hip)</span>
                 <input
                   className="mt-3 w-full accent-blue-600"
+                  disabled={isPlaying}
                   max={90}
                   min={-90}
                   onChange={updateLeftHip}
                   onInput={updateLeftHip}
                   step={1}
                   type="range"
-                  value={leftHipDeg}
+                  value={renderedLeftHipDeg}
                 />
-                <span className="mt-2 block text-sm tabular-nums text-slate-600">{leftHipDeg}°</span>
+                <span className="mt-2 block text-sm tabular-nums text-slate-600">{Math.round(renderedLeftHipDeg)}°</span>
               </label>
 
               <label className="block">
                 <span className="text-sm font-semibold text-slate-700">右髋 (right hip)</span>
                 <input
                   className="mt-3 w-full accent-blue-600"
+                  disabled={isPlaying}
                   max={90}
                   min={-90}
                   onChange={updateRightHip}
                   onInput={updateRightHip}
                   step={1}
                   type="range"
-                  value={rightHipDeg}
+                  value={renderedRightHipDeg}
                 />
-                <span className="mt-2 block text-sm tabular-nums text-slate-600">{rightHipDeg}°</span>
+                <span className="mt-2 block text-sm tabular-nums text-slate-600">{Math.round(renderedRightHipDeg)}°</span>
               </label>
 
               {/* SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control. */}
