@@ -134,6 +134,23 @@ describe("SimulationSession", () => {
     expect(replay.finalScore.total).toBe(score.total);
   });
 
+  it("switches strategy level without resetting simulation time or fatigue", () => {
+    const session = new SimulationSession({ initialAction: "walk" });
+
+    session.start();
+    const before = session.step(1000);
+    const beforeElapsed = session.getElapsedMs();
+
+    session.setStrategyLevel(3);
+    const after = session.step();
+
+    expect(session.getCurrentStrategy()).toEqual({ id: "level_3_fixed_ff", level: 3 });
+    expect(session.getElapsedMs()).toBeGreaterThan(beforeElapsed);
+    expect(after.t).toBeGreaterThan(before.t);
+    expect(after.fatigue).toBeGreaterThanOrEqual(before.fatigue);
+    expect(Math.abs(after.tau_exo.left_hip)).toBeGreaterThan(0);
+  });
+
   it("can reset and start again with elapsed time cleared", () => {
     const session = new SimulationSession();
 
