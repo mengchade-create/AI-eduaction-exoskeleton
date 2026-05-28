@@ -13,6 +13,8 @@ export interface RigProps {
   leftHipDeg?: number;
   /** Right hip pitch angle in degrees. 0 = vertical neutral. Positive = forward swing. */
   rightHipDeg?: number;
+  /** Small additive hip pose offset from raw session telemetry, in degrees. */
+  telemetryHipOffset?: number;
   /** SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control. */
   passiveJoints?: PassiveJointAngles;
   stance?: StanceFoot;
@@ -20,6 +22,7 @@ export interface RigProps {
 
 const HIP_ROM_LIMIT_DEG = 80;
 const DEG_TO_RAD = Math.PI / 180;
+const TELEMETRY_HIP_OFFSET_SCALE = 0.05;
 const THIGH_LENGTH = RIG_GEOMETRY.thighLength;
 const SHANK_LENGTH = RIG_GEOMETRY.shinLength;
 const LEG_LENGTH = THIGH_LENGTH + SHANK_LENGTH;
@@ -141,17 +144,21 @@ function Arm({ side }: ArmProps) {
 export default function Rig({
   leftHipDeg = 0,
   rightHipDeg = 0,
+  telemetryHipOffset = 0,
   passiveJoints = DEFAULT_PASSIVE_JOINTS,
   stance = "both",
 }: RigProps) {
+  const telemetryAdjustmentDeg = telemetryHipOffset * TELEMETRY_HIP_OFFSET_SCALE;
+  const renderedLeftHipDeg = leftHipDeg + telemetryAdjustmentDeg;
+  const renderedRightHipDeg = rightHipDeg + telemetryAdjustmentDeg;
   const pelvisOffsetY = computePelvisOffsetY(
     {
-      hip: degToRad(clampHipDeg(leftHipDeg)),
+      hip: degToRad(clampHipDeg(renderedLeftHipDeg)),
       knee: passiveJoints.leftKnee,
       ankle: passiveJoints.leftAnkle,
     },
     {
-      hip: degToRad(clampHipDeg(rightHipDeg)),
+      hip: degToRad(clampHipDeg(renderedRightHipDeg)),
       knee: passiveJoints.rightKnee,
       ankle: passiveJoints.rightAnkle,
     },
@@ -162,12 +169,12 @@ export default function Rig({
   // sagittal forward displacement -> -Z in scene (hip rotates around X axis)
   const pelvisOffsetZ = -computePelvisOffsetSagittal(
     {
-      hip: degToRad(clampHipDeg(leftHipDeg)),
+      hip: degToRad(clampHipDeg(renderedLeftHipDeg)),
       knee: passiveJoints.leftKnee,
       ankle: passiveJoints.leftAnkle,
     },
     {
-      hip: degToRad(clampHipDeg(rightHipDeg)),
+      hip: degToRad(clampHipDeg(renderedRightHipDeg)),
       knee: passiveJoints.rightKnee,
       ankle: passiveJoints.rightAnkle,
     },
@@ -201,8 +208,8 @@ export default function Rig({
           <Arm side="left" />
           <Arm side="right" />
         </group>
-        <Leg ankleRad={passiveJoints.leftAnkle} hipDeg={leftHipDeg} kneeRad={passiveJoints.leftKnee} side="left" />
-        <Leg ankleRad={passiveJoints.rightAnkle} hipDeg={rightHipDeg} kneeRad={passiveJoints.rightKnee} side="right" />
+        <Leg ankleRad={passiveJoints.leftAnkle} hipDeg={renderedLeftHipDeg} kneeRad={passiveJoints.leftKnee} side="left" />
+        <Leg ankleRad={passiveJoints.rightAnkle} hipDeg={renderedRightHipDeg} kneeRad={passiveJoints.rightKnee} side="right" />
       </group>
     </group>
   );
