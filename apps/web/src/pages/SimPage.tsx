@@ -35,6 +35,7 @@ function toTelemetryChartPoint(frame: TelemetryFrame, frameIndex: number): Telem
 export default function SimPage() {
   const [leftHipDeg, setLeftHipDeg] = useState(0);
   const [rightHipDeg, setRightHipDeg] = useState(0);
+  const [telemetryHipOffset, setTelemetryHipOffset] = useState(0);
   const [telemetryPoints, setTelemetryPoints] = useState<TelemetryChartPoint[]>([]);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
   const [passiveJoints, setPassiveJoints] = useState<PassiveJointAngles>(DEFAULT_PASSIVE_JOINTS);
@@ -62,6 +63,7 @@ export default function SimPage() {
     const unsubscribe = session.onTelemetry((frame) => {
       frameIndex += 1;
       const nextPoint = toTelemetryChartPoint(frame, frameIndex);
+      setTelemetryHipOffset(frame.joints.left_hip);
 
       setTelemetryPoints((current) => {
         const next = current.length >= TELEMETRY_BUFFER_SIZE
@@ -133,6 +135,7 @@ export default function SimPage() {
               passiveJoints={renderedPassiveJoints}
               rightHipDeg={renderedRightHipDeg}
               stance={renderedStance}
+              telemetryHipOffset={telemetryHipOffset}
             />
           </Scene>
         </section>
