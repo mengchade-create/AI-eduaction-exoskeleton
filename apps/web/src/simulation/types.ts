@@ -148,8 +148,12 @@ export interface TelemetryFrame {
   joints: JointAngles;
   /** Alias for joint angles used by the session API. */
   q: JointAngles;
+  /** Reference joint angles in degrees, matching the strategy input q_ref. */
+  q_ref: JointAngles;
   /** Joint angular velocity in degrees/s. */
   dq: JointVelocities;
+  /** Reference joint angular velocity in degrees/s, matching the strategy input dq_ref. */
+  dq_ref: JointVelocities;
   /** Human torque in N*m. */
   tau_human: JointTorques;
   /** Exoskeleton torque in N*m. */
