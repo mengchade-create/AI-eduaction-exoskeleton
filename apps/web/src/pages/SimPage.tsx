@@ -5,6 +5,7 @@ import { squatTemplate } from "../anim/templates/squat";
 import { useActionPlayer } from "../anim/useActionPlayer";
 import QRefVsQChart from "../components/sim/QRefVsQChart";
 import StaminaBar from "../components/sim/StaminaBar";
+import TauChart from "../components/sim/TauChart";
 import Rig from "../scene/Rig";
 import { Scene } from "../scene";
 import { DEFAULT_PASSIVE_JOINTS, setPassiveJoint, type PassiveJointAngles, type PassiveJointName } from "../scene/passiveJoints";
@@ -215,6 +216,7 @@ export default function SimPage() {
               <p className="text-sm text-slate-500">这是开发调试面板,PR #14 会接入真实仿真后移除。</p>
               <div className="space-y-4 border-t border-slate-200 pt-5">
                 <QRefVsQChart frames={telemetryFrames} />
+                <TauChart frames={telemetryFrames} />
                 <StaminaBar frame={latestTelemetryFrame} />
               </div>
               <div className="border-t border-slate-200 pt-5">
