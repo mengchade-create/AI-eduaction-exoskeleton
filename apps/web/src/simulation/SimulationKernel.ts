@@ -17,7 +17,7 @@ import { StrategyScorer } from "./models/StrategyScorer";
 import { deg2rad, mulberry32, rad2deg } from "./utils";
 import { SIT_HIP_DEG, SIT_TO_STAND_DURATION_S, STEP_COUNT } from "./models/HumanIntentModel";
 import { createStrategy } from "./strategies/StrategyFactory";
-import type { Strategy, StrategyLevel } from "./strategies/Strategy";
+import type { Strategy, StrategyJointAngles, StrategyJointVelocities, StrategyLevel } from "./strategies/Strategy";
 
 type Subscriber = (frame: TelemetryFrame) => void;
 type ActionCompleteSubscriber = (completedAction: ActionTemplateId) => void;
@@ -48,6 +48,8 @@ export class SimulationKernel {
   private subscribers = new Set<Subscriber>();
   private actionCompleteSubscribers = new Set<ActionCompleteSubscriber>();
   private lastTelemetryFrame: TelemetryFrame | null = null;
+  private lastQRef: StrategyJointAngles = { leftHip: 0, rightHip: 0 };
+  private lastDqRef: StrategyJointVelocities = { leftHip: 0, rightHip: 0 };
 
   private intent = new HumanIntentModel();
   private torque = new HumanTorqueModel();
@@ -185,17 +187,24 @@ export class SimulationKernel {
       this.rightHip,
     );
     const phase = this.computePhase();
+    const q = { leftHip: this.leftHip.posRad, rightHip: this.rightHip.posRad };
+    const dq = { leftHip: this.leftHip.velRad, rightHip: this.rightHip.velRad };
+    const qRef = {
+      leftHip: intent.leftHipTargetPosRad,
+      rightHip: intent.rightHipTargetPosRad,
+    };
+    const dqRef = {
+      leftHip: intent.leftHipTargetVelRad,
+      rightHip: intent.rightHipTargetVelRad,
+    };
+    this.lastQRef = qRef;
+    this.lastDqRef = dqRef;
+
     const assistTorque = this.strategy.computeAssistTorque({
-      q: { leftHip: this.leftHip.posRad, rightHip: this.rightHip.posRad },
-      dq: { leftHip: this.leftHip.velRad, rightHip: this.rightHip.velRad },
-      q_ref: {
-        leftHip: intent.leftHipTargetPosRad,
-        rightHip: intent.rightHipTargetPosRad,
-      },
-      dq_ref: {
-        leftHip: intent.leftHipTargetVelRad,
-        rightHip: intent.rightHipTargetVelRad,
-      },
+      q,
+      dq,
+      q_ref: qRef,
+      dq_ref: dqRef,
       tau_human: { leftHip: leftHumanTau, rightHip: rightHumanTau },
       fatigue: this.fatigue.value,
       action: this.action,
@@ -287,9 +296,17 @@ export class SimulationKernel {
         left_hip: rad2deg(this.leftHip.posRad),
         right_hip: rad2deg(this.rightHip.posRad),
       },
+      q_ref: {
+        left_hip: rad2deg(this.lastQRef.leftHip),
+        right_hip: rad2deg(this.lastQRef.rightHip),
+      },
       dq: {
         left_hip: rad2deg(this.leftHip.velRad),
         right_hip: rad2deg(this.rightHip.velRad),
+      },
+      dq_ref: {
+        left_hip: rad2deg(this.lastDqRef.leftHip),
+        right_hip: rad2deg(this.lastDqRef.rightHip),
       },
       tau_human: {
         left_hip: this.leftHip.torqueHumanNm,
@@ -382,6 +399,8 @@ export class SimulationKernel {
     this.action = "stand";
     this.actionStartedAt = this.t;
     this.intent.forceAction("stand", this.t);
+    this.lastQRef = { leftHip: 0, rightHip: 0 };
+    this.lastDqRef = { leftHip: 0, rightHip: 0 };
   }
 
   private stopTimer(): void {
