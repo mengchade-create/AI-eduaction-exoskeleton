@@ -1,4 +1,4 @@
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 import { squatTemplate } from "../anim/templates/squat";
@@ -37,6 +37,8 @@ export default function SimPage() {
   const [rightHipDeg, setRightHipDeg] = useState(0);
   const [telemetryHipOffset, setTelemetryHipOffset] = useState(0);
   const [telemetryPoints, setTelemetryPoints] = useState<TelemetryChartPoint[]>([]);
+  const sessionRef = useRef<SimulationSession | null>(null);
+  const wasPlayingRef = useRef(false);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
   const [passiveJoints, setPassiveJoints] = useState<PassiveJointAngles>(DEFAULT_PASSIVE_JOINTS);
   const { currentFrame, isPlaying, play, stop } = useActionPlayer(squatTemplate);
@@ -59,6 +61,7 @@ export default function SimPage() {
   };
   useEffect(() => {
     const session = new SimulationSession({ initialAction: "walk" });
+    sessionRef.current = session;
     let frameIndex = 0;
     const unsubscribe = session.onTelemetry((frame) => {
       frameIndex += 1;
@@ -86,8 +89,17 @@ export default function SimPage() {
       if (session.getState() === "running" || session.getState() === "paused") {
         session.stop();
       }
+      sessionRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (wasPlayingRef.current && !isPlaying) {
+      sessionRef.current?.setAction("walk");
+    }
+
+    wasPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   const toggleSquatPlayback = () => {
     setLeftHipDeg(0);
@@ -95,10 +107,12 @@ export default function SimPage() {
     setPassiveJoints(DEFAULT_PASSIVE_JOINTS);
 
     if (isPlaying) {
+      sessionRef.current?.setAction("walk");
       stop();
       return;
     }
 
+    sessionRef.current?.setAction("squat");
     play();
   };
   const passiveSlider = (label: string, joint: PassiveJointName, min: number, max: number) => (
