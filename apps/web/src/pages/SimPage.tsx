@@ -1,8 +1,11 @@
-import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 import { squatTemplate } from "../anim/templates/squat";
 import { useActionPlayer } from "../anim/useActionPlayer";
+import QRefVsQChart from "../components/sim/QRefVsQChart";
+import StaminaBar from "../components/sim/StaminaBar";
+import TauChart from "../components/sim/TauChart";
 import Rig from "../scene/Rig";
 import { Scene } from "../scene";
 import { DEFAULT_PASSIVE_JOINTS, setPassiveJoint, type PassiveJointAngles, type PassiveJointName } from "../scene/passiveJoints";
@@ -36,7 +39,7 @@ export default function SimPage() {
   const [leftHipDeg, setLeftHipDeg] = useState(0);
   const [rightHipDeg, setRightHipDeg] = useState(0);
   const [telemetryHipOffset, setTelemetryHipOffset] = useState(0);
-  const [telemetryPoints, setTelemetryPoints] = useState<TelemetryChartPoint[]>([]);
+  const [telemetryFrames, setTelemetryFrames] = useState<TelemetryFrame[]>([]);
   const sessionRef = useRef<SimulationSession | null>(null);
   const wasPlayingRef = useRef(false);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
@@ -48,6 +51,11 @@ export default function SimPage() {
   // SPEC §0.1(b): passive channel is animation-only and never enters telemetry or control.
   const renderedPassiveJoints = isPlaying ? currentFrame.passive : passiveJoints;
   const renderedStance = isPlaying ? currentFrame.stance : "both";
+  const telemetryPoints = useMemo(
+    () => telemetryFrames.map((frame, index) => toTelemetryChartPoint(frame, index + 1)),
+    [telemetryFrames],
+  );
+  const latestTelemetryFrame = telemetryFrames[telemetryFrames.length - 1];
   const updateLeftHip = (event: ChangeEvent<HTMLInputElement>) => {
     setLeftHipDeg(Number(event.currentTarget.value));
   };
@@ -62,17 +70,14 @@ export default function SimPage() {
   useEffect(() => {
     const session = new SimulationSession({ initialAction: "walk" });
     sessionRef.current = session;
-    let frameIndex = 0;
     const unsubscribe = session.onTelemetry((frame) => {
-      frameIndex += 1;
-      const nextPoint = toTelemetryChartPoint(frame, frameIndex);
       setTelemetryHipOffset(frame.joints.left_hip);
 
-      setTelemetryPoints((current) => {
+      setTelemetryFrames((current) => {
         const next = current.length >= TELEMETRY_BUFFER_SIZE
           ? current.slice(current.length - TELEMETRY_BUFFER_SIZE + 1)
           : [...current];
-        next.push(nextPoint);
+        next.push(frame);
         return next;
       });
     });
@@ -209,6 +214,11 @@ export default function SimPage() {
               </div>
 
               <p className="text-sm text-slate-500">这是开发调试面板,PR #14 会接入真实仿真后移除。</p>
+              <div className="space-y-4 border-t border-slate-200 pt-5">
+                <QRefVsQChart frames={telemetryFrames} />
+                <TauChart frames={telemetryFrames} />
+                <StaminaBar frame={latestTelemetryFrame} />
+              </div>
               <div className="border-t border-slate-200 pt-5">
                 <p className="text-sm font-semibold text-slate-700">Raw telemetry: left hip angle</p>
                 <div className="mt-3 h-48">
