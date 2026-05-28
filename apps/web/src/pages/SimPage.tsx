@@ -38,6 +38,7 @@ export default function SimPage() {
   const [telemetryHipOffset, setTelemetryHipOffset] = useState(0);
   const [telemetryPoints, setTelemetryPoints] = useState<TelemetryChartPoint[]>([]);
   const sessionRef = useRef<SimulationSession | null>(null);
+  const wasPlayingRef = useRef(false);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
   const [passiveJoints, setPassiveJoints] = useState<PassiveJointAngles>(DEFAULT_PASSIVE_JOINTS);
   const { currentFrame, isPlaying, play, stop } = useActionPlayer(squatTemplate);
@@ -91,6 +92,14 @@ export default function SimPage() {
       sessionRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (wasPlayingRef.current && !isPlaying) {
+      sessionRef.current?.setAction("walk");
+    }
+
+    wasPlayingRef.current = isPlaying;
+  }, [isPlaying]);
 
   const toggleSquatPlayback = () => {
     setLeftHipDeg(0);
