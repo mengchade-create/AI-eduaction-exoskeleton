@@ -111,6 +111,11 @@ export class SimulationKernel {
     this.pendingStrategyLevel = level;
   }
 
+  setStrategyLevel(level: StrategyLevel): void {
+    this.strategy = createStrategy(level);
+    this.pendingStrategyLevel = null;
+  }
+
   subscribe(cb: Subscriber): () => void {
     this.subscribers.add(cb);
 
@@ -370,7 +375,6 @@ export class SimulationKernel {
       return;
     }
 
-    this.strategy.reset();
     this.strategy = createStrategy(this.pendingStrategyLevel);
     this.pendingStrategyLevel = null;
     this.scorer.reset();

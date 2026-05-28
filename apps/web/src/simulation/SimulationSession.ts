@@ -132,6 +132,15 @@ export class SimulationSession {
     this.events.push({ t: this.elapsedMs / 1000, type: "setStrategy", level });
   }
 
+  setStrategyLevel(level: StrategyLevel): void {
+    if (this.state === "stopped") {
+      this.throwIllegal("setStrategyLevel");
+    }
+
+    this.kernel.setStrategyLevel(level);
+    this.events.push({ t: this.elapsedMs / 1000, type: "setStrategy", level });
+  }
+
   onTelemetry(cb: TelemetrySubscriber): Unsubscribe {
     this.telemetrySubscribers.push(cb);
 

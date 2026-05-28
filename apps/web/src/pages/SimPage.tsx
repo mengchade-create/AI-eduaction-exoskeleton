@@ -5,11 +5,13 @@ import { squatTemplate } from "../anim/templates/squat";
 import { useActionPlayer } from "../anim/useActionPlayer";
 import QRefVsQChart from "../components/sim/QRefVsQChart";
 import StaminaBar from "../components/sim/StaminaBar";
+import StrategyLevelSelect from "../components/sim/StrategyLevelSelect";
 import TauChart from "../components/sim/TauChart";
 import Rig from "../scene/Rig";
 import { Scene } from "../scene";
 import { DEFAULT_PASSIVE_JOINTS, setPassiveJoint, type PassiveJointAngles, type PassiveJointName } from "../scene/passiveJoints";
 import { SESSION_DEFAULT_STEP_MS, SimulationSession } from "../simulation/SimulationSession";
+import type { StrategyLevel } from "../simulation/strategies/Strategy";
 import type { TelemetryFrame } from "../simulation/types";
 
 const RAD_TO_DEG = 180 / Math.PI;
@@ -40,6 +42,7 @@ export default function SimPage() {
   const [rightHipDeg, setRightHipDeg] = useState(0);
   const [telemetryHipOffset, setTelemetryHipOffset] = useState(0);
   const [telemetryFrames, setTelemetryFrames] = useState<TelemetryFrame[]>([]);
+  const [strategyLevel, setStrategyLevel] = useState<StrategyLevel>(1);
   const sessionRef = useRef<SimulationSession | null>(null);
   const wasPlayingRef = useRef(false);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
@@ -66,6 +69,10 @@ export default function SimPage() {
     const valueRad = Number(event.currentTarget.value) * DEG_TO_RAD;
 
     setPassiveJoints((current) => setPassiveJoint(current, joint, valueRad));
+  };
+  const updateStrategyLevel = (level: StrategyLevel) => {
+    setStrategyLevel(level);
+    sessionRef.current?.setStrategyLevel(level);
   };
   useEffect(() => {
     const session = new SimulationSession({ initialAction: "walk" });
@@ -172,6 +179,8 @@ export default function SimPage() {
               >
                 {isPlaying ? "Stop" : "Play squat"}
               </button>
+
+              <StrategyLevelSelect onChange={updateStrategyLevel} value={strategyLevel} />
 
               <label className="block">
                 <span className="text-sm font-semibold text-slate-700">左髋 (left hip)</span>
