@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   selectQRefVsQSeries,
+  selectTauSeries,
   selectStamina,
+  formatTelemetryTimeTick,
 } from "./telemetrySelectors";
 import type { TelemetryFrame } from "../types";
 
@@ -65,6 +67,47 @@ describe("telemetry selectors", () => {
 
     expect(selectQRefVsQSeries([brokenFrame], "leftHip")).toStrictEqual([]);
     expect(selectQRefVsQSeries([brokenFrame], "rightHip")).toStrictEqual([{ t: 1, qRef: 4, q: -10 }]);
+  });
+
+  it("selects tau_human vs tau_exo series for each active hip joint", () => {
+    const frames = [
+      telemetryFrame({ t: 1, tau_human: { left_hip: 1, right_hip: -2 }, tau_exo: { left_hip: 3, right_hip: -4 } }),
+      telemetryFrame({ t: 2, tau_human: { left_hip: 5, right_hip: -6 }, tau_exo: { left_hip: 7, right_hip: -8 } }),
+    ];
+
+    expect(selectTauSeries(frames, "leftHip")).toStrictEqual([
+      { t: 1, tauHuman: 1, tauExo: 3 },
+      { t: 2, tauHuman: 5, tauExo: 7 },
+    ]);
+    expect(selectTauSeries(frames, "rightHip")).toStrictEqual([
+      { t: 1, tauHuman: -2, tauExo: -4 },
+      { t: 2, tauHuman: -6, tauExo: -8 },
+    ]);
+  });
+
+  it("returns an empty tau series for empty input", () => {
+    expect(selectTauSeries([], "leftHip")).toStrictEqual([]);
+  });
+
+  it("skips frames with missing or non-finite tau fields", () => {
+    const brokenFrame = telemetryFrame({
+      tau_human: { left_hip: Number.NaN, right_hip: 4 },
+      tau_exo: { left_hip: 1, right_hip: 5 },
+    });
+    const missingFrame = {
+      ...telemetryFrame(),
+      tau_exo: { left_hip: undefined, right_hip: 5 },
+    } as unknown as TelemetryFrame;
+
+    expect(selectTauSeries([brokenFrame], "leftHip")).toStrictEqual([]);
+    expect(selectTauSeries([brokenFrame], "rightHip")).toStrictEqual([{ t: 1, tauHuman: 4, tauExo: 5 }]);
+    expect(selectTauSeries([missingFrame], "leftHip")).toStrictEqual([]);
+  });
+
+  it("formats telemetry time ticks to one decimal place", () => {
+    expect(formatTelemetryTimeTick(7.10199999999944)).toBe("7.1");
+    expect(formatTelemetryTimeTick("2")).toBe("2.0");
+    expect(formatTelemetryTimeTick("not-a-number")).toBe("not-a-number");
   });
 
   it("selects default stamina when no frame is available", () => {

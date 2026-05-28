@@ -17,16 +17,34 @@ export interface QRefVsQPoint {
   q: number;
 }
 
+export interface TauPoint {
+  t: number;
+  tauHuman: number;
+  tauExo: number;
+}
+
 export interface StaminaState {
   value: number;
   label: "green" | "yellow" | "red";
   percent: number;
 }
 
+export function formatTelemetryTimeTick(value: number | string): string {
+  const numericValue = typeof value === "number" ? value : Number(value);
+
+  return Number.isFinite(numericValue) ? numericValue.toFixed(1) : String(value);
+}
+
 export function hasQRefForJoint(frame: TelemetryFrame, jointId: TelemetryJointId): boolean {
   const key = JOINT_KEYS[jointId];
 
   return Number.isFinite(frame.q_ref[key]) && Number.isFinite(frame.q[key]);
+}
+
+export function hasTauForJoint(frame: TelemetryFrame, jointId: TelemetryJointId): boolean {
+  const key = JOINT_KEYS[jointId];
+
+  return Number.isFinite(frame.tau_human[key]) && Number.isFinite(frame.tau_exo[key]);
 }
 
 export function selectQRefVsQSeries(frames: TelemetryFrame[], jointId: TelemetryJointId): QRefVsQPoint[] {
@@ -38,6 +56,18 @@ export function selectQRefVsQSeries(frames: TelemetryFrame[], jointId: Telemetry
       t: frame.t,
       qRef: frame.q_ref[key],
       q: frame.q[key],
+    }));
+}
+
+export function selectTauSeries(frames: TelemetryFrame[], jointId: TelemetryJointId): TauPoint[] {
+  const key = JOINT_KEYS[jointId];
+
+  return frames
+    .filter((frame) => hasTauForJoint(frame, jointId))
+    .map((frame) => ({
+      t: frame.t,
+      tauHuman: frame.tau_human[key],
+      tauExo: frame.tau_exo[key],
     }));
 }
 
