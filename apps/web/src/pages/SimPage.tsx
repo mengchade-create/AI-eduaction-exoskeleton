@@ -1,8 +1,10 @@
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 import { squatTemplate } from "../anim/templates/squat";
 import { useActionPlayer } from "../anim/useActionPlayer";
+import BadDemoButton from "../components/sim/BadDemoButton";
+import type { BadDemoPreset } from "../components/sim/badDemoPreset";
 import QRefVsQChart from "../components/sim/QRefVsQChart";
 import StaminaBar from "../components/sim/StaminaBar";
 import StrategyLevelSelect from "../components/sim/StrategyLevelSelect";
@@ -12,12 +14,26 @@ import { Scene } from "../scene";
 import { DEFAULT_PASSIVE_JOINTS, setPassiveJoint, type PassiveJointAngles, type PassiveJointName } from "../scene/passiveJoints";
 import { SESSION_DEFAULT_STEP_MS, SimulationSession } from "../simulation/SimulationSession";
 import type { StrategyKey } from "../simulation/strategies/Strategy";
-import type { TelemetryFrame } from "../simulation/types";
+import type { ActionType, TelemetryFrame, Unsubscribe } from "../simulation/types";
 
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
 const TELEMETRY_BUFFER_SIZE = 300;
 const isDev = (import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV === true;
+
+type SimSessionConfig = {
+  seed: number;
+  strategyKey: StrategyKey;
+  action: ActionType;
+  durationS: number | null;
+};
+
+const DEFAULT_SIM_SESSION_CONFIG: SimSessionConfig = {
+  seed: 0,
+  strategyKey: 1,
+  action: "walk",
+  durationS: null,
+};
 
 type TelemetryChartPoint = {
   frame: number;
@@ -43,8 +59,13 @@ export default function SimPage() {
   const [telemetryHipOffset, setTelemetryHipOffset] = useState(0);
   const [telemetryFrames, setTelemetryFrames] = useState<TelemetryFrame[]>([]);
   const [strategyKey, setStrategyKey] = useState<StrategyKey>(1);
+  const [simSeed, setSimSeed] = useState(DEFAULT_SIM_SESSION_CONFIG.seed);
+  const [simDurationS, setSimDurationS] = useState<number | null>(DEFAULT_SIM_SESSION_CONFIG.durationS);
   const sessionRef = useRef<SimulationSession | null>(null);
+  const sessionIntervalRef = useRef<number | null>(null);
+  const unsubscribeTelemetryRef = useRef<Unsubscribe | null>(null);
   const wasPlayingRef = useRef(false);
+  const suppressNextPlaybackEndActionRef = useRef(false);
   // SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control.
   const [passiveJoints, setPassiveJoints] = useState<PassiveJointAngles>(DEFAULT_PASSIVE_JOINTS);
   const { currentFrame, isPlaying, play, stop } = useActionPlayer(squatTemplate);
@@ -70,14 +91,37 @@ export default function SimPage() {
 
     setPassiveJoints((current) => setPassiveJoint(current, joint, valueRad));
   };
-  const updateStrategyKey = (key: StrategyKey) => {
-    setStrategyKey(key);
-    sessionRef.current?.setStrategyLevel(key);
-  };
-  useEffect(() => {
-    const session = new SimulationSession({ initialAction: "walk" });
+
+  const stopSession = useCallback(() => {
+    if (sessionIntervalRef.current !== null) {
+      window.clearInterval(sessionIntervalRef.current);
+      sessionIntervalRef.current = null;
+    }
+
+    unsubscribeTelemetryRef.current?.();
+    unsubscribeTelemetryRef.current = null;
+
+    const session = sessionRef.current;
+    if (session !== null && (session.getState() === "running" || session.getState() === "paused")) {
+      session.stop();
+    }
+
+    sessionRef.current = null;
+  }, []);
+
+  const startSession = useCallback((config: SimSessionConfig) => {
+    stopSession();
+    setTelemetryHipOffset(0);
+    setTelemetryFrames([]);
+
+    const session = new SimulationSession({
+      seed: config.seed,
+      initialAction: config.action,
+      initialStrategyLevel: config.strategyKey,
+    });
     sessionRef.current = session;
-    const unsubscribe = session.onTelemetry((frame) => {
+
+    unsubscribeTelemetryRef.current = session.onTelemetry((frame) => {
       setTelemetryHipOffset(frame.joints.left_hip);
 
       setTelemetryFrames((current) => {
@@ -90,24 +134,33 @@ export default function SimPage() {
     });
 
     session.start();
-    const intervalId = window.setInterval(() => {
-      session.step(SESSION_DEFAULT_STEP_MS);
+    sessionIntervalRef.current = window.setInterval(() => {
+      if (session.getState() === "running") {
+        session.step(SESSION_DEFAULT_STEP_MS);
+      }
     }, SESSION_DEFAULT_STEP_MS);
+  }, [stopSession]);
+
+  const updateStrategyKey = (key: StrategyKey) => {
+    setStrategyKey(key);
+    sessionRef.current?.setStrategyLevel(key);
+  };
+
+  useEffect(() => {
+    startSession(DEFAULT_SIM_SESSION_CONFIG);
 
     return () => {
-      window.clearInterval(intervalId);
-      unsubscribe();
-
-      if (session.getState() === "running" || session.getState() === "paused") {
-        session.stop();
-      }
-      sessionRef.current = null;
+      stopSession();
     };
-  }, []);
+  }, [startSession, stopSession]);
 
   useEffect(() => {
     if (wasPlayingRef.current && !isPlaying) {
-      sessionRef.current?.setAction("walk");
+      if (suppressNextPlaybackEndActionRef.current) {
+        suppressNextPlaybackEndActionRef.current = false;
+      } else {
+        sessionRef.current?.setAction("walk");
+      }
     }
 
     wasPlayingRef.current = isPlaying;
@@ -127,6 +180,24 @@ export default function SimPage() {
     sessionRef.current?.setAction("squat");
     play();
   };
+
+  const applyBadDemoPreset = (preset: BadDemoPreset) => {
+    suppressNextPlaybackEndActionRef.current = isPlaying;
+    stop();
+    setLeftHipDeg(0);
+    setRightHipDeg(0);
+    setPassiveJoints(DEFAULT_PASSIVE_JOINTS);
+    setStrategyKey(preset.strategyKey);
+    setSimSeed(preset.seed);
+    setSimDurationS(preset.durationS);
+    startSession({
+      seed: preset.seed,
+      strategyKey: preset.strategyKey,
+      action: preset.action,
+      durationS: preset.durationS,
+    });
+  };
+
   const passiveSlider = (label: string, joint: PassiveJointName, min: number, max: number) => (
     <label className="block">
       <span className="flex items-baseline justify-between gap-3 text-sm font-semibold text-slate-700">
@@ -180,7 +251,13 @@ export default function SimPage() {
                 {isPlaying ? "Stop" : "Play squat"}
               </button>
 
+              <BadDemoButton onApply={applyBadDemoPreset} />
+
               <StrategyLevelSelect onChange={updateStrategyKey} value={strategyKey} />
+
+              <p className="text-xs text-slate-500" data-testid="sim-config-summary">
+                Seed {simSeed} / Duration {simDurationS === null ? "continuous" : `${simDurationS}s`}
+              </p>
 
               <label className="block">
                 <span className="text-sm font-semibold text-slate-700">左髋 (left hip)</span>
