@@ -61,6 +61,7 @@ export default function SimPage() {
   const [telemetryFrames, setTelemetryFrames] = useState<TelemetryFrame[]>([]);
   const [strategyKey, setStrategyKey] = useState<StrategyKey>(1);
   const [activeAction, setActiveAction] = useState<SimActionButtonAction>(DEFAULT_SIM_SESSION_CONFIG.action);
+  const [activeActionStartedAtS, setActiveActionStartedAtS] = useState(0);
   const [simSeed, setSimSeed] = useState(DEFAULT_SIM_SESSION_CONFIG.seed);
   const [simDurationS, setSimDurationS] = useState<number | null>(DEFAULT_SIM_SESSION_CONFIG.durationS);
   const sessionRef = useRef<SimulationSession | null>(null);
@@ -79,7 +80,7 @@ export default function SimPage() {
     leftHipDeg,
     rightHipDeg,
     passiveJoints,
-  });
+  }, Math.max(0, (latestTelemetryFrame?.t ?? 0) - activeActionStartedAtS));
   const updateLeftHip = (event: ChangeEvent<HTMLInputElement>) => {
     setLeftHipDeg(Number(event.currentTarget.value));
   };
@@ -151,6 +152,7 @@ export default function SimPage() {
     setRightHipDeg(0);
     setPassiveJoints(DEFAULT_PASSIVE_JOINTS);
     setActiveAction(action);
+    setActiveActionStartedAtS(latestTelemetryFrame?.t ?? 0);
     setSimDurationS(null);
     sessionRef.current?.setAction(action);
   };
@@ -169,6 +171,7 @@ export default function SimPage() {
     setPassiveJoints(DEFAULT_PASSIVE_JOINTS);
     setStrategyKey(preset.strategyKey);
     setActiveAction(preset.action);
+    setActiveActionStartedAtS(0);
     setSimSeed(preset.seed);
     setSimDurationS(preset.durationS);
     startSession({

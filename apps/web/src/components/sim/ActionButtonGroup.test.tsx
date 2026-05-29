@@ -71,6 +71,94 @@ describe("ActionButtonGroup", () => {
     expect(selected).toEqual(["stand", "walk", "squat"]);
   });
 
+  it("resets the squat pose to the first animation frame on action change", () => {
+    const staleWalkFrame = frameWithQRef(25, -25, 7);
+    const buttonSquatFrame = selectSimRigFrame(
+      "squat",
+      staleWalkFrame,
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+      0,
+    );
+    const badDemoSquatFrame = selectSimRigFrame(
+      "squat",
+      undefined,
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+      0,
+    );
+
+    expect(buttonSquatFrame).toEqual(badDemoSquatFrame);
+    expect(buttonSquatFrame.passiveJoints).toEqual(DEFAULT_PASSIVE_JOINTS);
+  });
+
+  it("advances the squat passive pose from the reset phase after action change", () => {
+    const resetFrame = selectSimRigFrame(
+      "squat",
+      frameWithQRef(25, -25, 7),
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+      0,
+    );
+    const midSquatFrame = selectSimRigFrame(
+      "squat",
+      frameWithQRef(25, -25, 8),
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+      1,
+    );
+
+    expect(resetFrame.passiveJoints.leftKnee).toBe(0);
+    expect(midSquatFrame.passiveJoints.leftKnee).toBeGreaterThan(resetFrame.passiveJoints.leftKnee);
+  });
+
+  it("adds non-constant passive knee and ankle motion for walk", () => {
+    const neutralWalkFrame = selectSimRigFrame(
+      "walk",
+      frameWithQRef(0, 0),
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+    );
+    const swingWalkFrame = selectSimRigFrame(
+      "walk",
+      frameWithQRef(25, -25),
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+    );
+
+    expect(neutralWalkFrame.passiveJoints.leftKnee).toBe(0);
+    expect(swingWalkFrame.passiveJoints.leftKnee).toBeGreaterThan(neutralWalkFrame.passiveJoints.leftKnee);
+    expect(swingWalkFrame.passiveJoints.leftAnkle).toBeGreaterThan(neutralWalkFrame.passiveJoints.leftAnkle);
+  });
+
+  it("keeps stand passive joints near-constant", () => {
+    const standFrame = selectSimRigFrame("stand", frameWithQRef(25, -25, 9), {
+      leftHipDeg: 0,
+      rightHipDeg: 0,
+      passiveJoints: DEFAULT_PASSIVE_JOINTS,
+    });
+
+    expect(standFrame.passiveJoints).toEqual(DEFAULT_PASSIVE_JOINTS);
+  });
+
   it("marks Squat active for the Bad Demo preset action", () => {
     const markup = renderToStaticMarkup(
       <ActionButtonGroup activeAction={BAD_DEMO_PRESET.action} onAction={() => undefined} />,

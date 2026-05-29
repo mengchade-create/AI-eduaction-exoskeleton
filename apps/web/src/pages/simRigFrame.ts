@@ -1,8 +1,14 @@
 import { squatTemplate } from "../anim/templates/squat";
+import { clampPassiveJointAngles } from "../anim/ActionTemplate";
 import { DEFAULT_PASSIVE_JOINTS, type PassiveJointAngles } from "../scene/passiveJoints";
 import type { StanceFoot } from "../scene/grounding";
 import type { TelemetryFrame } from "../simulation/types";
 import type { SimActionButtonAction } from "../components/sim/ActionButtonGroup";
+
+const DEG_TO_RAD = Math.PI / 180;
+const WALK_HIP_AMPLITUDE_DEG = 25;
+const WALK_KNEE_MAX_DEG = 25;
+const WALK_ANKLE_MAX_DEG = 6;
 
 export interface ManualRigPose {
   leftHipDeg: number;
@@ -24,10 +30,27 @@ function sampleSquatFrame(timestampS: number) {
   return squatTemplate.sample(phase);
 }
 
+function sampleWalkPassiveJoints(frame: TelemetryFrame | undefined): PassiveJointAngles {
+  if (frame === undefined) {
+    return DEFAULT_PASSIVE_JOINTS;
+  }
+
+  const leftSwing = Math.max(0, Math.min(1, frame.q_ref.left_hip / WALK_HIP_AMPLITUDE_DEG));
+  const rightSwing = Math.max(0, Math.min(1, frame.q_ref.right_hip / WALK_HIP_AMPLITUDE_DEG));
+
+  return clampPassiveJointAngles({
+    leftKnee: leftSwing * WALK_KNEE_MAX_DEG * DEG_TO_RAD,
+    rightKnee: rightSwing * WALK_KNEE_MAX_DEG * DEG_TO_RAD,
+    leftAnkle: leftSwing * WALK_ANKLE_MAX_DEG * DEG_TO_RAD,
+    rightAnkle: rightSwing * WALK_ANKLE_MAX_DEG * DEG_TO_RAD,
+  });
+}
+
 export function selectSimRigFrame(
   action: SimActionButtonAction,
   frame: TelemetryFrame | undefined,
   manualPose: ManualRigPose,
+  actionElapsedS = frame?.t ?? 0,
 ): SimRigFrame {
   if (action === "stand") {
     return {
@@ -44,10 +67,11 @@ export function selectSimRigFrame(
   };
 
   if (action === "squat") {
-    const sampledFrame = sampleSquatFrame(frame?.t ?? 0);
+    const sampledFrame = sampleSquatFrame(Math.max(0, actionElapsedS));
 
     return {
-      ...activePose,
+      leftHipDeg: sampledFrame.active.left_hip,
+      rightHipDeg: sampledFrame.active.right_hip,
       passiveJoints: sampledFrame.passive,
       stance: sampledFrame.stance,
     };
@@ -55,7 +79,7 @@ export function selectSimRigFrame(
 
   return {
     ...activePose,
-    passiveJoints: DEFAULT_PASSIVE_JOINTS,
+    passiveJoints: sampleWalkPassiveJoints(frame),
     stance: "both",
   };
 }
