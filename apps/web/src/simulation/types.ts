@@ -1,3 +1,5 @@
+import type { StrategyKey } from "./strategies/Strategy";
+
 /** Single-joint instantaneous state, using rad / rad*s^-1 / N*m internally. */
 export interface JointState {
   /** Joint angle relative to neutral position, in radians. */
@@ -68,8 +70,8 @@ export interface KernelConfig {
   dt?: number;
   /** Deterministic seed for future noise sources; defaults to 42. */
   seed?: number;
-  /** Initial strategy level; defaults to 1. */
-  initialStrategyLevel?: 1 | 2 | 3 | 4 | 5;
+  /** Initial strategy key; defaults to numeric Level 1. */
+  initialStrategyLevel?: StrategyKey;
 }
 
 /** Strategy parameters accepted by SimulationKernel.setStrategy. */

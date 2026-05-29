@@ -1,6 +1,7 @@
 import type { ActionTemplateId } from "../types";
 
-export type StrategyLevel = 1 | 2 | 3 | 4 | 5;
+export type StrategyLevel = 0 | 1 | 2 | 3 | 4 | 5;
+export type StrategyKey = StrategyLevel | "bad_phase";
 
 export interface StrategyJointAngles {
   leftHip: number;
