@@ -3,6 +3,7 @@ import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 
 import { squatTemplate } from "../anim/templates/squat";
 import { useActionPlayer } from "../anim/useActionPlayer";
+import AdversarialModeFrame from "../components/sim/AdversarialModeFrame";
 import BadDemoButton from "../components/sim/BadDemoButton";
 import type { BadDemoPreset } from "../components/sim/badDemoPreset";
 import QRefVsQChart from "../components/sim/QRefVsQChart";
@@ -220,7 +221,7 @@ export default function SimPage() {
   );
 
   return (
-    <main className="flex h-screen flex-col bg-sky-100 text-slate-900">
+    <AdversarialModeFrame strategyKey={strategyKey}>
       <header className="shrink-0 bg-white/80 shadow-sm">
         <h1 className="p-4 text-xl font-bold">外骨骼仿真 · Phase 2</h1>
       </header>
@@ -321,6 +322,6 @@ export default function SimPage() {
           </aside>
         ) : null}
       </div>
-    </main>
+    </AdversarialModeFrame>
   );
 }
