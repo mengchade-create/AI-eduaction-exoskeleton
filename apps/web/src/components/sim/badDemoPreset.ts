@@ -1,11 +1,13 @@
 import type { StrategyKey } from "../../simulation/strategies/Strategy";
 import type { ActionTemplateId } from "../../simulation/types";
 
+type BadDemoAction = Extract<ActionTemplateId, "stand" | "walk" | "squat">;
+
 export interface BadDemoPreset {
   strategyKey: StrategyKey;
   seed: number;
   durationS: number;
-  action: ActionTemplateId;
+  action: BadDemoAction;
 }
 
 export const BAD_DEMO_PRESET: BadDemoPreset = {
