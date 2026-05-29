@@ -7,21 +7,21 @@ import type {
   TelemetryFrame,
   Unsubscribe,
 } from "./types";
-import type { StrategyLevel } from "./strategies/Strategy";
+import type { StrategyKey } from "./strategies/Strategy";
 
 export interface SimulationSessionOptions {
   seed?: number;
-  initialStrategyLevel?: StrategyLevel;
+  initialStrategyLevel?: StrategyKey;
   initialAction?: ActionType;
 }
 
 export interface SessionReplay {
   seed: number;
   initialAction: ActionType;
-  initialStrategyLevel: StrategyLevel;
+  initialStrategyLevel: StrategyKey;
   events: Array<
     | { t: number; type: "setAction"; action: ActionType }
-    | { t: number; type: "setStrategy"; level: StrategyLevel }
+    | { t: number; type: "setStrategy"; level: StrategyKey }
     | { t: number; type: "stop" }
   >;
 }
@@ -33,7 +33,7 @@ export const SESSION_DEFAULT_STEP_MS = 16;
 
 export class SimulationSession {
   private readonly seed: number;
-  private readonly initialStrategyLevel: StrategyLevel;
+  private readonly initialStrategyLevel: StrategyKey;
   private readonly initialAction: ActionType;
   private kernel: SimulationKernel;
   private state: SessionState = "idle";
@@ -123,7 +123,7 @@ export class SimulationSession {
     this.events.push({ t: this.elapsedMs / 1000, type: "setAction", action });
   }
 
-  setStrategy(level: StrategyLevel): void {
+  setStrategy(level: StrategyKey): void {
     if (this.state === "stopped") {
       this.throwIllegal("setStrategy");
     }
@@ -132,7 +132,7 @@ export class SimulationSession {
     this.events.push({ t: this.elapsedMs / 1000, type: "setStrategy", level });
   }
 
-  setStrategyLevel(level: StrategyLevel): void {
+  setStrategyLevel(level: StrategyKey): void {
     if (this.state === "stopped") {
       this.throwIllegal("setStrategyLevel");
     }

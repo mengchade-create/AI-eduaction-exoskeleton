@@ -17,7 +17,7 @@ import { StrategyScorer } from "./models/StrategyScorer";
 import { deg2rad, mulberry32, rad2deg } from "./utils";
 import { SIT_HIP_DEG, SIT_TO_STAND_DURATION_S, STEP_COUNT } from "./models/HumanIntentModel";
 import { createStrategy } from "./strategies/StrategyFactory";
-import type { Strategy, StrategyJointAngles, StrategyJointVelocities, StrategyLevel } from "./strategies/Strategy";
+import type { Strategy, StrategyJointAngles, StrategyJointVelocities, StrategyKey } from "./strategies/Strategy";
 
 type Subscriber = (frame: TelemetryFrame) => void;
 type ActionCompleteSubscriber = (completedAction: ActionTemplateId) => void;
@@ -43,7 +43,7 @@ export class SimulationKernel {
   private instantScore = 50;
   private cumulativeScore = 50;
   private strategy: Strategy;
-  private pendingStrategyLevel: StrategyLevel | null = null;
+  private pendingStrategyKey: StrategyKey | null = null;
   private scoreSnapshot: ScoreBreakdown | null = null;
   private subscribers = new Set<Subscriber>();
   private actionCompleteSubscribers = new Set<ActionCompleteSubscriber>();
@@ -107,13 +107,17 @@ export class SimulationKernel {
     return this.scoreSnapshot;
   }
 
-  setStrategy(level: StrategyLevel): void {
-    this.pendingStrategyLevel = level;
+  setStrategy(key: StrategyKey): void {
+    this.pendingStrategyKey = key;
   }
 
-  setStrategyLevel(level: StrategyLevel): void {
-    this.strategy = createStrategy(level);
-    this.pendingStrategyLevel = null;
+  setStrategyLevel(key: StrategyKey): void {
+    this.setStrategyKey(key);
+  }
+
+  setStrategyKey(key: StrategyKey): void {
+    this.strategy = createStrategy(key);
+    this.pendingStrategyKey = null;
   }
 
   subscribe(cb: Subscriber): () => void {
@@ -371,12 +375,12 @@ export class SimulationKernel {
   }
 
   private applyPendingStrategy(): void {
-    if (this.pendingStrategyLevel === null) {
+    if (this.pendingStrategyKey === null) {
       return;
     }
 
-    this.strategy = createStrategy(this.pendingStrategyLevel);
-    this.pendingStrategyLevel = null;
+    this.strategy = createStrategy(this.pendingStrategyKey);
+    this.pendingStrategyKey = null;
     this.scorer.reset();
     this.scoreSnapshot = null;
   }
