@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -15,15 +15,14 @@ quality-axis strategy rather than a normal level in the L1..L5 progression.
 
 ## Decision
 
-`bad_phase` will move to a secondary UI surface, such as a separate
-"Adversarial demo" control, or remain available only through the Bad Demo
-preset.
+`bad_phase` will move to a secondary UI surface, exposed as an
+"Adversarial demo: bad_phase" control and through the Bad Demo preset.
 
 The L1..L5 dropdown will list only quantitative intensity levels.
 
 ## Consequences
 
-PR #29 will implement this UI separation.
+PR #29 implements this UI separation.
 
 Existing tests that assert the dropdown contents or strategy selection flow will
 need updates.
