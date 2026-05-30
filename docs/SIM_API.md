@@ -70,7 +70,9 @@ import type { TelemetryFrame } from "../simulation/types";
 | `imu` | `IMU` | zero placeholder | `{ ax: 0, ... }` | V1 schema placeholder |
 | `joints` | `JointAngles` | deg | `{ left_hip: 74.98, right_hip: 74.98 }` | `JointDynamics` via `rad2deg` |
 | `q` | `JointAngles` | deg | same as `joints` | session API alias |
+| `q_ref` | `JointAngles` | deg | `{ left_hip: 70, right_hip: 70 }` | hip-only reference signal from active strategy inputs; emitted via `rad2deg` from internal rad values |
 | `dq` | `JointVelocities` | deg/s | `{ left_hip: 3.1, right_hip: 3.1 }` | `JointDynamics` via `rad2deg` |
+| `dq_ref` | `JointVelocities` | deg/s | `{ left_hip: 12, right_hip: 12 }` | hip-only reference velocity from active strategy inputs; emitted via `rad2deg` from internal rad/s values |
 | `tau_human` | `JointTorques` | N*m | `{ left_hip: 12, right_hip: 12 }` | `HumanTorqueModel` |
 | `tau_exo` | `JointTorques` | N*m | `{ left_hip: 3, right_hip: 3 }` | active strategy |
 | `motors` | `MotorState` | N*m / A | `{ left_hip_torque: 3, ... }` | active strategy + placeholder current |
@@ -154,17 +156,23 @@ import { createStrategy } from "../simulation/strategies/StrategyFactory";
 | 4 | `level_4_phase_adapt` | `PHASE_ALPHA_BASE = 0.45`, `PHASE_ALPHA_SWING_BONUS = 0.2` | `34.00` |
 | 5 | `level_5_full_adapt` | `FULL_ALPHA_BASE = 0.65`, `FULL_ALPHA_PHASE_BONUS = 0.15`, `FULL_ALPHA_FATIGUE_BONUS = 0.2`, `FULL_ALPHA_MAX = 0.95` | `41.98` |
 
-### 5.2 Quality axis (Phase 2 implementation pending)
+### 5.2 Quality axis
 
 | Key         | Definition                                                  | Status                                          |
 |-------------|-------------------------------------------------------------|-------------------------------------------------|
-| bad_phase   | good_assist with reference torque phase shifted by +π/2     | Spec'd; kernel registration deferred to Phase 2 |
-| reverse     | good_assist with assistance gain α negated (α → −α)         | Spec'd; kernel registration deferred to Phase 2 |
+| bad_phase   | adversarial hip torque shifted a half-cycle out of phase with human intent | implemented; see `apps/web/src/simulation/strategies/BadPhase.ts` |
+| reverse     | good_assist with assistance gain negated                    | deferred, not registered |
 
-These keys are reserved by SPEC §3.5.4 and decision
-0002-strategy-space-two-axes. Phase 1 kernel registers only the 5
-intensity-axis strategies; calling these keys via `StrategyFactory` in
-Phase 1 builds will throw `UnknownStrategyError`.
+These keys are reserved by SPEC section 3.5.4 and decision
+0002-strategy-space-two-axes.
+
+### 5.3 Strategy selection surface
+
+The L1..L5 dropdown represents the quantitative intensity progression only.
+`bad_phase` is a secondary adversarial demo entry and is not part of the
+L1..L5 progression. It exists to demonstrate an intentionally wrong strategy
+for teaching and review flows. `reverse` remains deferred and is not registered
+in `StrategyFactory`.
 
 ## 6. ActionType enum and baselines
 
