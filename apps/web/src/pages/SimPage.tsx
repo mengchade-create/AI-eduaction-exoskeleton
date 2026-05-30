@@ -217,6 +217,7 @@ export default function SimPage() {
               rightHipDeg={renderedRigFrame.rightHipDeg}
               stance={renderedRigFrame.stance}
               telemetryHipOffset={telemetryHipOffset}
+              groundingResetKey={`${activeAction}:${activeActionStartedAtS}:${simSeed}:${simDurationS ?? "continuous"}`}
             />
           </Scene>
         </section>

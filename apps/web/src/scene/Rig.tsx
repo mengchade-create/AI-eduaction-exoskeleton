@@ -1,11 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
 
 import { DEFAULT_PASSIVE_JOINTS, type PassiveJointAngles } from "./passiveJoints";
 import { computePelvisOffsetSagittal, computePelvisOffsetY, type StanceFoot } from "./grounding";
+import { computeFootGroundLockLiftY, createRootLiftSmoother } from "./footGroundLock";
 import { FOOT_BOX_HEIGHT, REST_FOOT_SAGITTAL, REST_FOOT_Y, RIG_GEOMETRY } from "./rigGeometry";
 
 export interface RigProps {
@@ -18,6 +19,7 @@ export interface RigProps {
   /** SPEC §0.1(b) passive joint · animation-only · NOT telemetry · NOT control. */
   passiveJoints?: PassiveJointAngles;
   stance?: StanceFoot;
+  groundingResetKey?: string;
 }
 
 const HIP_ROM_LIMIT_DEG = 80;
@@ -147,44 +149,49 @@ export default function Rig({
   telemetryHipOffset = 0,
   passiveJoints = DEFAULT_PASSIVE_JOINTS,
   stance = "both",
+  groundingResetKey = "default",
 }: RigProps) {
+  const rootLiftSmootherRef = useRef(createRootLiftSmoother());
+  const previousGroundingResetKeyRef = useRef(groundingResetKey);
   const telemetryAdjustmentDeg = telemetryHipOffset * TELEMETRY_HIP_OFFSET_SCALE;
   const renderedLeftHipDeg = leftHipDeg + telemetryAdjustmentDeg;
   const renderedRightHipDeg = rightHipDeg + telemetryAdjustmentDeg;
+  const leftLegAngles = {
+    hip: degToRad(clampHipDeg(renderedLeftHipDeg)),
+    knee: passiveJoints.leftKnee,
+    ankle: passiveJoints.leftAnkle,
+  };
+  const rightLegAngles = {
+    hip: degToRad(clampHipDeg(renderedRightHipDeg)),
+    knee: passiveJoints.rightKnee,
+    ankle: passiveJoints.rightAnkle,
+  };
+
+  if (previousGroundingResetKeyRef.current !== groundingResetKey) {
+    rootLiftSmootherRef.current.reset();
+    previousGroundingResetKeyRef.current = groundingResetKey;
+  }
+
   const pelvisOffsetY = computePelvisOffsetY(
-    {
-      hip: degToRad(clampHipDeg(renderedLeftHipDeg)),
-      knee: passiveJoints.leftKnee,
-      ankle: passiveJoints.leftAnkle,
-    },
-    {
-      hip: degToRad(clampHipDeg(renderedRightHipDeg)),
-      knee: passiveJoints.rightKnee,
-      ankle: passiveJoints.rightAnkle,
-    },
+    leftLegAngles,
+    rightLegAngles,
     stance,
     RIG_GEOMETRY,
     REST_FOOT_Y,
   );
   // sagittal forward displacement -> -Z in scene (hip rotates around X axis)
   const pelvisOffsetZ = -computePelvisOffsetSagittal(
-    {
-      hip: degToRad(clampHipDeg(renderedLeftHipDeg)),
-      knee: passiveJoints.leftKnee,
-      ankle: passiveJoints.leftAnkle,
-    },
-    {
-      hip: degToRad(clampHipDeg(renderedRightHipDeg)),
-      knee: passiveJoints.rightKnee,
-      ankle: passiveJoints.rightAnkle,
-    },
+    leftLegAngles,
+    rightLegAngles,
     stance,
     RIG_GEOMETRY,
     REST_FOOT_SAGITTAL,
   );
+  const rawFootGroundLiftY = computeFootGroundLockLiftY(leftLegAngles, rightLegAngles, RIG_GEOMETRY, HIP_HEIGHT, pelvisOffsetY);
+  const footGroundLiftY = rootLiftSmootherRef.current.next(rawFootGroundLiftY);
 
   return (
-    <group name="rig-grounding" position={[0, pelvisOffsetY, pelvisOffsetZ]}>
+    <group name="rig-grounding" position={[0, pelvisOffsetY + footGroundLiftY, pelvisOffsetZ]}>
       <group name="rig-root">
         <group name="rig-upper">
           <RoundedBox args={[0.32, TORSO_HEIGHT, 0.22]} position={[0, TORSO_CENTER_Y, 0]} radius={0.04} smoothness={3}>
