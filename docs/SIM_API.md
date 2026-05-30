@@ -168,11 +168,12 @@ These keys are reserved by SPEC section 3.5.4 and decision
 
 ### 5.3 Strategy selection surface
 
-The L1..L5 dropdown represents the quantitative intensity progression only.
-`bad_phase` is a secondary adversarial demo entry and is not part of the
-L1..L5 progression. It exists to demonstrate an intentionally wrong strategy
-for teaching and review flows. `reverse` remains deferred and is not registered
-in `StrategyFactory`.
+The primary strategy dropdown lists only the quantitative L1..L5 intensity
+progression. `bad_phase` is reachable through a secondary
+`Adversarial demo: bad_phase` control, and through the Bad Demo preset
+(`bad_phase` + seed 42 + 12s + squat). It is not part of the L1..L5
+progression. `reverse` remains deferred and is not registered in
+`StrategyFactory`.
 
 ## 6. ActionType enum and baselines
 
