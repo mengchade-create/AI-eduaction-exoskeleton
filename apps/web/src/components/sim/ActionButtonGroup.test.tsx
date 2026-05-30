@@ -35,6 +35,19 @@ function frameWithQRef(leftHip: number, rightHip = leftHip, t = 0): TelemetryFra
   } as TelemetryFrame;
 }
 
+function walkFrameAtTime(t: number): TelemetryFrame {
+  const leftHip = 25 * Math.sin(2 * Math.PI * t);
+  const leftHipVelocity = 25 * 2 * Math.PI * Math.cos(2 * Math.PI * t);
+
+  return {
+    ...frameWithQRef(leftHip, -leftHip, t),
+    dq_ref: {
+      left_hip: leftHipVelocity,
+      right_hip: -leftHipVelocity,
+    },
+  } as TelemetryFrame;
+}
+
 describe("ActionButtonGroup", () => {
   it("uses stand as the neutral rig frame source", () => {
     const frame = selectSimRigFrame("stand", frameWithQRef(25, -25), {
@@ -127,7 +140,7 @@ describe("ActionButtonGroup", () => {
   it("adds non-constant passive knee and ankle motion for walk", () => {
     const neutralWalkFrame = selectSimRigFrame(
       "walk",
-      frameWithQRef(0, 0),
+      walkFrameAtTime(0),
       {
         leftHipDeg: 0,
         rightHipDeg: 0,
@@ -137,7 +150,7 @@ describe("ActionButtonGroup", () => {
     );
     const swingWalkFrame = selectSimRigFrame(
       "walk",
-      frameWithQRef(25, -25),
+      walkFrameAtTime(0.075),
       {
         leftHipDeg: 0,
         rightHipDeg: 0,
@@ -147,8 +160,70 @@ describe("ActionButtonGroup", () => {
     );
 
     expect(neutralWalkFrame.passiveJoints.leftKnee).toBeGreaterThan(0);
-    expect(swingWalkFrame.passiveJoints.leftKnee).toBeGreaterThan(neutralWalkFrame.passiveJoints.leftKnee);
-    expect(swingWalkFrame.passiveJoints.leftAnkle).toBeLessThan(neutralWalkFrame.passiveJoints.leftAnkle);
+    expect(swingWalkFrame.passiveJoints.leftKnee).not.toBe(neutralWalkFrame.passiveJoints.leftKnee);
+    expect(swingWalkFrame.passiveJoints.leftAnkle).not.toBe(neutralWalkFrame.passiveJoints.leftAnkle);
+  });
+
+  it("maps left hip flexion peak to heel strike with a nearly straight knee", () => {
+    const frame = selectSimRigFrame(
+      "walk",
+      walkFrameAtTime(0.25),
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+      0.25,
+    );
+
+    expect(frame.leftHipDeg).toBeGreaterThan(24);
+    expect(frame.passiveJoints.leftKnee * (180 / Math.PI)).toBeLessThanOrEqual(10);
+  });
+
+  it("maps left hip extension peak to toe-off with left knee flexed and right knee near straight", () => {
+    const frame = selectSimRigFrame(
+      "walk",
+      walkFrameAtTime(0.75),
+      {
+        leftHipDeg: 0,
+        rightHipDeg: 0,
+        passiveJoints: DEFAULT_PASSIVE_JOINTS,
+      },
+      0.75,
+    );
+
+    expect(frame.leftHipDeg).toBeLessThan(-24);
+    expect(frame.passiveJoints.leftKnee * (180 / Math.PI)).toBeGreaterThanOrEqual(30);
+    expect(frame.passiveJoints.rightKnee * (180 / Math.PI)).toBeLessThanOrEqual(10);
+  });
+
+  it("puts left ankle push-off plantarflexion near the bottom third of left hip range", () => {
+    let minAnkle = Number.POSITIVE_INFINITY;
+    let hipAtMinAnkle = 0;
+
+    for (let index = 0; index < 360; index += 1) {
+      const t = index / 360;
+      const telemetryFrame = walkFrameAtTime(t);
+      const frame = selectSimRigFrame(
+        "walk",
+        telemetryFrame,
+        {
+          leftHipDeg: 0,
+          rightHipDeg: 0,
+          passiveJoints: DEFAULT_PASSIVE_JOINTS,
+        },
+        t,
+      );
+      const ankleDeg = frame.passiveJoints.leftAnkle * (180 / Math.PI);
+
+      if (ankleDeg < minAnkle) {
+        minAnkle = ankleDeg;
+        hipAtMinAnkle = telemetryFrame.q_ref.left_hip;
+      }
+    }
+
+    expect(minAnkle).toBeLessThan(-10);
+    expect(hipAtMinAnkle).toBeLessThanOrEqual(-25 / 3);
   });
 
   it("keeps stand passive joints near-constant", () => {

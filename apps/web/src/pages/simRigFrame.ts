@@ -7,6 +7,7 @@ import type { TelemetryFrame } from "../simulation/types";
 import type { SimActionButtonAction } from "../components/sim/ActionButtonGroup";
 
 const WALK_CYCLE_HZ = 1;
+const WALK_OMEGA = WALK_CYCLE_HZ * 2 * Math.PI;
 
 export interface ManualRigPose {
   leftHipDeg: number;
@@ -28,8 +29,14 @@ function sampleSquatFrame(timestampS: number) {
   return squatTemplate.sample(phase);
 }
 
-function sampleWalkPassiveJoints(actionElapsedS: number): PassiveJointAngles {
-  const leftPhase = Math.max(0, actionElapsedS) * WALK_CYCLE_HZ * 2 * Math.PI;
+function sampleWalkPassiveJoints(frame: TelemetryFrame | undefined, actionElapsedS: number): PassiveJointAngles {
+  const fallbackRawPhase = Math.max(0, actionElapsedS) * WALK_OMEGA;
+  const rawPhase = frame === undefined
+    ? fallbackRawPhase
+    : Math.atan2(frame.q_ref.left_hip, frame.dq_ref.left_hip / WALK_OMEGA);
+  // Engine hip is A * sin(rawPhase), so flexion peak (heel strike) occurs at pi/2.
+  // Gait phi defines heel strike at 0; shift raw phase back by pi/2.
+  const leftPhase = rawPhase - Math.PI / 2;
   const { left, right } = sampleWalkGaitPairRad(leftPhase);
 
   return clampPassiveJointAngles({
@@ -73,7 +80,7 @@ export function selectSimRigFrame(
 
   return {
     ...activePose,
-    passiveJoints: sampleWalkPassiveJoints(actionElapsedS),
+    passiveJoints: sampleWalkPassiveJoints(frame, actionElapsedS),
     stance: "both",
   };
 }
