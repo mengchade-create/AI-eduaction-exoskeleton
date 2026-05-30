@@ -1,8 +1,24 @@
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import StaminaBar from "./StaminaBar";
 import type { TelemetryFrame } from "../../simulation/types";
+
+interface MockChartProps {
+  children?: ReactNode;
+  data?: unknown[];
+  dataKey?: string;
+  name?: string;
+}
+
+vi.mock("recharts", () => ({
+  ResponsiveContainer: ({ children }: MockChartProps) => <div data-testid="responsive-container">{children}</div>,
+  LineChart: ({ children, data }: MockChartProps) => <div data-points={data?.length ?? 0}>{children}</div>,
+  XAxis: () => <span>t (s)</span>,
+  YAxis: () => <span>Stamina (%)</span>,
+  Line: ({ dataKey, name }: MockChartProps) => <span>{name ?? dataKey}</span>,
+}));
 
 function telemetryFrame(overrides: Partial<TelemetryFrame> = {}): TelemetryFrame {
   return {
@@ -36,16 +52,27 @@ function telemetryFrame(overrides: Partial<TelemetryFrame> = {}): TelemetryFrame
 }
 
 describe("StaminaBar", () => {
-  it("renders default full stamina when no frame is available", () => {
-    const markup = renderToStaticMarkup(<StaminaBar frame={undefined} />);
+  it("renders an empty stamina time-series chart", () => {
+    const markup = renderToStaticMarkup(<StaminaBar frames={[]} />);
 
-    expect(markup).toContain("Stamina 100%");
-    expect(markup).toContain("bg-green-500");
+    expect(markup).toContain("Stamina over time");
+    expect(markup).toContain("data-points=\"0\"");
+    expect(markup).toContain("t (s)");
+    expect(markup).toContain("Stamina (%)");
   });
 
-  it("switches color classes by stamina threshold", () => {
-    expect(renderToStaticMarkup(<StaminaBar frame={telemetryFrame()} />)).toContain("bg-green-500");
-    expect(renderToStaticMarkup(<StaminaBar frame={telemetryFrame({ fatigue: 0.5 })} />)).toContain("bg-yellow-500");
-    expect(renderToStaticMarkup(<StaminaBar frame={telemetryFrame({ fatigue: 0.9 })} />)).toContain("bg-red-600");
+  it("renders one chart point for each telemetry frame", () => {
+    const markup = renderToStaticMarkup(
+      <StaminaBar
+        frames={[
+          telemetryFrame({ t: 1, fatigue: 0 }),
+          telemetryFrame({ t: 2, fatigue: 0.25 }),
+          telemetryFrame({ t: 3, fatigue: 0.9 }),
+        ]}
+      />,
+    );
+
+    expect(markup).toContain("data-points=\"3\"");
+    expect(markup).toContain("Stamina");
   });
 });

@@ -61,5 +61,6 @@ The Phase 1 freeze point is commit `868f57e` (`chore(p1): phase 1 wrap-up -- SIM
 - PR #20 added `q_ref` / `dq_ref` to `TelemetryFrame`. It touched `SimulationKernel` and `SimulationSession` API-layer code so consumers can visualize the reference trajectory. The four frozen physical model files were not changed.
 - PR #23 added runtime strategy level switching through `SimulationSession`. It touched session/kernel strategy plumbing and UI callers, without changing the physical model files.
 - PR #24 registered `bad_phase` as an adversarial demo strategy. It touched `StrategyFactory` and session/kernel strategy-key plumbing, without changing the physical model files.
+- PR #30a replaced the `/sim` stamina progress bar with a frontend time-series chart derived from existing `TelemetryFrame.fatigue`; no API, scoring, or model files changed.
 
 `JointDynamics.ts`, `HumanTorqueModel.ts`, `FatigueModel.ts`, and `HumanIntentModel.ts` remain untouched since freeze commit `868f57e`.

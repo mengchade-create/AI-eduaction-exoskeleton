@@ -4,6 +4,7 @@ import {
   selectQRefVsQSeries,
   selectTauSeries,
   selectStamina,
+  selectStaminaSeries,
   formatTelemetryTimeTick,
 } from "./telemetrySelectors";
 import type { TelemetryFrame } from "../types";
@@ -129,5 +130,27 @@ describe("telemetry selectors", () => {
   it("clamps stamina values to 0..1", () => {
     expect(selectStamina(telemetryFrame({ fatigue: -1 })).percent).toBe(100);
     expect(selectStamina(telemetryFrame({ fatigue: 2 })).percent).toBe(0);
+  });
+
+  it("selects stamina percent over time from telemetry fatigue", () => {
+    const frames = [
+      telemetryFrame({ t: 1, fatigue: 0 }),
+      telemetryFrame({ t: 2, fatigue: 0.25 }),
+      telemetryFrame({ t: 3, fatigue: 0.9 }),
+    ];
+
+    expect(selectStaminaSeries(frames)).toStrictEqual([
+      { t: 1, stamina: 100 },
+      { t: 2, stamina: 75 },
+      { t: 3, stamina: 10 },
+    ]);
+  });
+
+  it("returns an empty stamina series for empty or non-finite telemetry", () => {
+    const brokenFrame = telemetryFrame({ t: Number.NaN, fatigue: 0.5 });
+    const missingFatigueFrame = { ...telemetryFrame(), fatigue: undefined } as unknown as TelemetryFrame;
+
+    expect(selectStaminaSeries([])).toStrictEqual([]);
+    expect(selectStaminaSeries([brokenFrame, missingFatigueFrame])).toStrictEqual([]);
   });
 });

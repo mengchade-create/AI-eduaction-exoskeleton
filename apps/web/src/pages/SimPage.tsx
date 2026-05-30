@@ -281,7 +281,7 @@ export default function SimPage() {
               <div className="space-y-4 border-t border-slate-200 pt-5">
                 <QRefVsQChart frames={telemetryFrames} />
                 <TauChart frames={telemetryFrames} />
-                <StaminaBar frame={latestTelemetryFrame} />
+                <StaminaBar frames={telemetryFrames} />
               </div>
               <div className="border-t border-slate-200 pt-5">
                 <p className="text-sm font-semibold text-slate-700">Raw telemetry: left hip angle</p>

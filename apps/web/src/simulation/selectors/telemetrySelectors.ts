@@ -29,6 +29,11 @@ export interface StaminaState {
   percent: number;
 }
 
+export interface StaminaPoint {
+  t: number;
+  stamina: number;
+}
+
 export function formatTelemetryTimeTick(value: number | string): string {
   const numericValue = typeof value === "number" ? value : Number(value);
 
@@ -88,4 +93,13 @@ export function selectStamina(frame: TelemetryFrame | undefined): StaminaState {
     label,
     percent: Math.round(value * 100),
   };
+}
+
+export function selectStaminaSeries(frames: TelemetryFrame[]): StaminaPoint[] {
+  return frames
+    .filter((frame) => Number.isFinite(frame.t) && Number.isFinite(frame.fatigue))
+    .map((frame) => ({
+      t: frame.t,
+      stamina: Math.round(clamp01(1 - frame.fatigue) * 100),
+    }));
 }
