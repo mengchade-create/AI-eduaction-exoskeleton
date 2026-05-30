@@ -53,3 +53,13 @@ Current simulation tests: 5 files / 24 tests.
 
 `JointDynamics`, `HumanTorqueModel`, `FatigueModel`, and `HumanIntentModel` are treated as the Phase 1 physical model layer.
 Phase 2 visual and Dashboard work should consume them through `SimulationSession`; model changes need an ADR.
+
+## Post-freeze deltas
+
+The Phase 1 freeze point is commit `868f57e` (`chore(p1): phase 1 wrap-up -- SIM_API, PHASE1_SUMMARY, smoke baseline, changelog`).
+
+- PR #20 added `q_ref` / `dq_ref` to `TelemetryFrame`. It touched `SimulationKernel` and `SimulationSession` API-layer code so consumers can visualize the reference trajectory. The four frozen physical model files were not changed.
+- PR #23 added runtime strategy level switching through `SimulationSession`. It touched session/kernel strategy plumbing and UI callers, without changing the physical model files.
+- PR #24 registered `bad_phase` as an adversarial demo strategy. It touched `StrategyFactory` and session/kernel strategy-key plumbing, without changing the physical model files.
+
+`JointDynamics.ts`, `HumanTorqueModel.ts`, `FatigueModel.ts`, and `HumanIntentModel.ts` remain untouched since freeze commit `868f57e`.
