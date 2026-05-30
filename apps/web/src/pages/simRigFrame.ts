@@ -1,14 +1,12 @@
 import { squatTemplate } from "../anim/templates/squat";
+import { sampleWalkGaitPairRad } from "../anim/walkGait";
 import { clampPassiveJointAngles } from "../anim/ActionTemplate";
-import { DEFAULT_PASSIVE_JOINTS, type PassiveJointAngles } from "../scene/passiveJoints";
+import type { PassiveJointAngles } from "../scene/passiveJoints";
 import type { StanceFoot } from "../scene/grounding";
 import type { TelemetryFrame } from "../simulation/types";
 import type { SimActionButtonAction } from "../components/sim/ActionButtonGroup";
 
-const DEG_TO_RAD = Math.PI / 180;
-const WALK_HIP_AMPLITUDE_DEG = 25;
-const WALK_KNEE_MAX_DEG = 25;
-const WALK_ANKLE_MAX_DEG = 6;
+const WALK_CYCLE_HZ = 1;
 
 export interface ManualRigPose {
   leftHipDeg: number;
@@ -30,19 +28,15 @@ function sampleSquatFrame(timestampS: number) {
   return squatTemplate.sample(phase);
 }
 
-function sampleWalkPassiveJoints(frame: TelemetryFrame | undefined): PassiveJointAngles {
-  if (frame === undefined) {
-    return DEFAULT_PASSIVE_JOINTS;
-  }
-
-  const leftSwing = Math.max(0, Math.min(1, frame.q_ref.left_hip / WALK_HIP_AMPLITUDE_DEG));
-  const rightSwing = Math.max(0, Math.min(1, frame.q_ref.right_hip / WALK_HIP_AMPLITUDE_DEG));
+function sampleWalkPassiveJoints(actionElapsedS: number): PassiveJointAngles {
+  const leftPhase = Math.max(0, actionElapsedS) * WALK_CYCLE_HZ * 2 * Math.PI;
+  const { left, right } = sampleWalkGaitPairRad(leftPhase);
 
   return clampPassiveJointAngles({
-    leftKnee: leftSwing * WALK_KNEE_MAX_DEG * DEG_TO_RAD,
-    rightKnee: rightSwing * WALK_KNEE_MAX_DEG * DEG_TO_RAD,
-    leftAnkle: leftSwing * WALK_ANKLE_MAX_DEG * DEG_TO_RAD,
-    rightAnkle: rightSwing * WALK_ANKLE_MAX_DEG * DEG_TO_RAD,
+    leftKnee: left.kneeRad,
+    rightKnee: right.kneeRad,
+    leftAnkle: left.ankleRad,
+    rightAnkle: right.ankleRad,
   });
 }
 
@@ -79,7 +73,7 @@ export function selectSimRigFrame(
 
   return {
     ...activePose,
-    passiveJoints: sampleWalkPassiveJoints(frame),
+    passiveJoints: sampleWalkPassiveJoints(actionElapsedS),
     stance: "both",
   };
 }

@@ -133,6 +133,7 @@ describe("ActionButtonGroup", () => {
         rightHipDeg: 0,
         passiveJoints: DEFAULT_PASSIVE_JOINTS,
       },
+      0,
     );
     const swingWalkFrame = selectSimRigFrame(
       "walk",
@@ -142,11 +143,12 @@ describe("ActionButtonGroup", () => {
         rightHipDeg: 0,
         passiveJoints: DEFAULT_PASSIVE_JOINTS,
       },
+      0.075,
     );
 
-    expect(neutralWalkFrame.passiveJoints.leftKnee).toBe(0);
+    expect(neutralWalkFrame.passiveJoints.leftKnee).toBeGreaterThan(0);
     expect(swingWalkFrame.passiveJoints.leftKnee).toBeGreaterThan(neutralWalkFrame.passiveJoints.leftKnee);
-    expect(swingWalkFrame.passiveJoints.leftAnkle).toBeGreaterThan(neutralWalkFrame.passiveJoints.leftAnkle);
+    expect(swingWalkFrame.passiveJoints.leftAnkle).toBeLessThan(neutralWalkFrame.passiveJoints.leftAnkle);
   });
 
   it("keeps stand passive joints near-constant", () => {
