@@ -6,6 +6,7 @@ import AdversarialModeFrame from "../components/sim/AdversarialModeFrame";
 import BadDemoButton from "../components/sim/BadDemoButton";
 import type { BadDemoPreset } from "../components/sim/badDemoPreset";
 import QRefVsQChart from "../components/sim/QRefVsQChart";
+import ScoreBreakdownCard from "../components/sim/ScoreBreakdownCard";
 import StaminaBar from "../components/sim/StaminaBar";
 import StrategyLevelSelect from "../components/sim/StrategyLevelSelect";
 import TauChart from "../components/sim/TauChart";
@@ -14,7 +15,7 @@ import { Scene } from "../scene";
 import { DEFAULT_PASSIVE_JOINTS, setPassiveJoint, type PassiveJointAngles, type PassiveJointName } from "../scene/passiveJoints";
 import { SESSION_DEFAULT_STEP_MS, SimulationSession } from "../simulation/SimulationSession";
 import type { StrategyKey } from "../simulation/strategies/Strategy";
-import type { TelemetryFrame, Unsubscribe } from "../simulation/types";
+import type { ScoreBreakdown, TelemetryFrame, Unsubscribe } from "../simulation/types";
 import { selectSimRigFrame } from "./simRigFrame";
 
 type MainStrategyKey = 1 | 2 | 3 | 4 | 5;
@@ -67,6 +68,7 @@ export default function SimPage() {
   const [activeActionStartedAtS, setActiveActionStartedAtS] = useState(0);
   const [simSeed, setSimSeed] = useState(DEFAULT_SIM_SESSION_CONFIG.seed);
   const [simDurationS, setSimDurationS] = useState<number | null>(DEFAULT_SIM_SESSION_CONFIG.durationS);
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null);
   const sessionRef = useRef<SimulationSession | null>(null);
   const sessionIntervalRef = useRef<number | null>(null);
   const unsubscribeTelemetryRef = useRef<Unsubscribe | null>(null);
@@ -117,6 +119,7 @@ export default function SimPage() {
     stopSession();
     setTelemetryHipOffset(0);
     setTelemetryFrames([]);
+    setScoreBreakdown(null);
 
     const session = new SimulationSession({
       seed: config.seed,
@@ -140,24 +143,48 @@ export default function SimPage() {
     session.start();
     sessionIntervalRef.current = window.setInterval(() => {
       if (session.getState() === "running") {
-        session.step(SESSION_DEFAULT_STEP_MS);
+        const frame = session.step(SESSION_DEFAULT_STEP_MS);
+
+        if (config.durationS !== null && frame.t + Number.EPSILON >= config.durationS) {
+          const score = session.stop();
+          setScoreBreakdown(score);
+
+          if (sessionIntervalRef.current !== null) {
+            window.clearInterval(sessionIntervalRef.current);
+            sessionIntervalRef.current = null;
+          }
+        }
       }
     }, SESSION_DEFAULT_STEP_MS);
   }, [stopSession]);
 
   const updateStrategyKey = (key: StrategyKey) => {
+    setScoreBreakdown(null);
     setStrategyKey(key);
 
     if (key === 1 || key === 2 || key === 3 || key === 4 || key === 5) {
       setMainStrategyKey(key);
     }
 
-    sessionRef.current?.setStrategyLevel(key);
+    const session = sessionRef.current;
+
+    if (session === null || session.getState() === "stopped") {
+      startSession({
+        seed: simSeed,
+        strategyKey: key,
+        action: activeAction,
+        durationS: simDurationS,
+      });
+      return;
+    }
+
+    session.setStrategyLevel(key);
   };
 
   const updateAction = (action: SimActionButtonAction) => {
     const nextStrategyKey = mainStrategyKey;
 
+    setScoreBreakdown(null);
     setLeftHipDeg(0);
     setRightHipDeg(0);
     setPassiveJoints(DEFAULT_PASSIVE_JOINTS);
@@ -165,8 +192,20 @@ export default function SimPage() {
     setActiveAction(action);
     setActiveActionStartedAtS(latestTelemetryFrame?.t ?? 0);
     setSimDurationS(null);
-    sessionRef.current?.setStrategyLevel(nextStrategyKey);
-    sessionRef.current?.setAction(action);
+    const session = sessionRef.current;
+
+    if (session === null || session.getState() === "stopped") {
+      startSession({
+        seed: simSeed,
+        strategyKey: nextStrategyKey,
+        action,
+        durationS: null,
+      });
+      return;
+    }
+
+    session.setStrategyLevel(nextStrategyKey);
+    session.setAction(action);
   };
 
   useEffect(() => {
@@ -298,6 +337,7 @@ export default function SimPage() {
                 <QRefVsQChart frames={telemetryFrames} />
                 <TauChart frames={telemetryFrames} />
                 <StaminaBar frames={telemetryFrames} />
+                <ScoreBreakdownCard score={scoreBreakdown} />
               </div>
               <div className="border-t border-slate-200 pt-5">
                 <p className="text-sm font-semibold text-slate-700">Raw telemetry: left hip angle</p>

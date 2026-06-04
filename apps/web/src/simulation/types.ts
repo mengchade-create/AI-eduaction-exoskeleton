@@ -22,9 +22,9 @@ export interface KernelState {
   rightHip: JointState;
   /** Normalized fatigue value in the range 0..1. */
   fatigue: number;
-  /** Instant score for the current tick, in the range 0..100. */
+  /** Instant score for the current tick, in the range 0..1. */
   instantScore: number;
-  /** Rolling average score, in the range 0..100. */
+  /** Rolling average score, in the range 0..1. */
   cumulativeScore: number;
 }
 
@@ -183,8 +183,25 @@ export interface TelemetryFrame {
 }
 
 /** Final score breakdown produced when the kernel stops. */
+export interface SubScore {
+  /** Stable subscore key. */
+  key: string;
+  /** Display label for the subscore. */
+  label: string;
+  /** Raw subscore value in the range 0..1. */
+  value: number;
+  /** Subscore weight; all weights sum to 1. */
+  weight: number;
+  /** Weighted contribution, equal to value * weight. */
+  contribution: number;
+}
+
 export interface ScoreBreakdown {
+  /** Weighted total score in the range 0..1. */
   total: number;
+  /** Structured subscore list used by UI and exports. */
+  subscores: SubScore[];
+  /** Raw diagnostic values retained for calibration and tests. */
   breakdown: {
     energy_human: number;
     energy_exo: number;

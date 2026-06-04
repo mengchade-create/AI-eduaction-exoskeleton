@@ -90,7 +90,7 @@ describe("strategy factory", () => {
     expect(scores[2]).toBeLessThanOrEqual(scores[3]);
     expect(scores[3]).toBeLessThanOrEqual(scores[4]);
     expect(scores[4]).toBeGreaterThan(scores[0]);
-    expect(scores[4] - scores[3]).toBeGreaterThanOrEqual(0.5);
+    expect(scores[4] - scores[3]).toBeGreaterThanOrEqual(0.005);
   });
 
   it("bad_phase scores worse than Level 1 zero on a full squat", () => {

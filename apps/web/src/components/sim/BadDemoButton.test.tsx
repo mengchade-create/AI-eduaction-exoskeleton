@@ -68,7 +68,7 @@ describe("BadDemoButton", () => {
   });
 
   it("the Bad Demo preset scores near the canonical bad_phase squat run", () => {
-    expect(scorePreset(BAD_DEMO_PRESET)).toBeCloseTo(-112.47, 1);
+    expect(scorePreset(BAD_DEMO_PRESET)).toBeCloseTo(0.7066, 4);
   });
 
   it("changing the strategy dropdown after Bad Demo can switch back to a numeric level", () => {
