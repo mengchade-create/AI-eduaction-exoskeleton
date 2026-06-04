@@ -254,6 +254,8 @@ export class SimulationKernel {
     this.scorer.record({
       leftPosRad: this.leftHip.posRad,
       rightPosRad: this.rightHip.posRad,
+      leftRefPosRad: qRef.leftHip,
+      rightRefPosRad: qRef.rightHip,
       leftVelRad: this.leftHip.velRad,
       rightVelRad: this.rightHip.velRad,
       leftTauHumanNm: leftHumanTau,

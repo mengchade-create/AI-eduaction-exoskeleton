@@ -89,33 +89,51 @@ import type { TelemetryFrame } from "../simulation/types";
 ## 4. ScoreBreakdown fields and formula
 
 ```ts
-import type { ScoreBreakdown } from "../simulation/types";
-import { getEnergyBaseline } from "../simulation/scoring/energyBaseline";
+import type { ScoreBreakdown, SubScore } from "../simulation/types";
 ```
 
-Formula:
+`SimulationSession.stop()` returns a structured `ScoreBreakdown`.
+The score is a 0..1 weighted sum of explicit subscores; there is no
+second total-score calculation path in the UI.
 
 ```ts
-energy_term = SCORE_WEIGHT_ENERGY * (1 - energy_human / getEnergyBaseline(action, duration_s));
-total = energy_term
-  - SCORE_WEIGHT_ROM * rom_violation
-  - SCORE_WEIGHT_SMOOTHNESS * smoothness
-  - SCORE_WEIGHT_FATIGUE * fatigue_final;
+interface ScoreBreakdown {
+  total: number;
+  subscores: SubScore[];
+  breakdown: {
+    energy_human: number;
+    energy_exo: number;
+    rom_violation: number;
+    smoothness: number;
+    fatigue_final: number;
+  };
+  strategy_id: string;
+  duration_s: number;
+}
+
+interface SubScore {
+  key: string;
+  label: string;
+  value: number;        // 0..1, higher is better
+  weight: number;       // weights sum to 1
+  contribution: number; // value * weight
+}
+
+total = sum(subscore.contribution for subscore in subscores);
 ```
 
-Current constants:
+Current subscores:
 
-| Constant | Value | Status |
-|---|---:|---|
-| `SCORE_WEIGHT_ENERGY` | `100` | placeholder, waits for ergonomics calibration |
-| `SCORE_WEIGHT_ROM` | `8` | placeholder |
-| `SCORE_WEIGHT_SMOOTHNESS` | `0.00002` | placeholder |
-| `SCORE_WEIGHT_FATIGUE` | `10` | placeholder |
-| `BASELINE_FLOOR_J_PER_S` | `5` | retained Phase 1 implementation; see §8 |
-| `HIP_ROM_LIMIT_RAD` | `80deg` | resolved by SPEC §3.5 hip ROM hard limit |
+| key | label | Definition | Weight |
+|---|---|---|---:|
+| `tracking` | `Tracking Accuracy` | Exponential score from RMSE between hip `q_ref` and actual hip `q`, using the same active hip-only channels exposed in telemetry. | `0.5` |
+| `smoothness` | `Smoothness` | Exponential score from accumulated assist-torque jerk proxy already tracked by `StrategyScorer`. | `0.3` |
+| `endurance` | `Endurance Efficiency` | Mean stamina over the full episode, where `stamina(t) = 1 - fatigue(t)`. Empty episodes return `1` to avoid division by zero. | `0.2` |
 
-`ScoreBreakdown.breakdown.energy_human` uses calibrated per-action L1 baselines.
-Weights and ROM limit are not final science values.
+`ScoreBreakdown.breakdown` is retained as raw diagnostic data for
+calibration and tests. It is not a separate scoring formula. The energy
+baseline table and `HIP_ROM_LIMIT_RAD` remain available for diagnostics
+and future calibration work.
 
 ## 5. Strategy registry
 
