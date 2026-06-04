@@ -17,6 +17,8 @@ import type { StrategyKey } from "../simulation/strategies/Strategy";
 import type { TelemetryFrame, Unsubscribe } from "../simulation/types";
 import { selectSimRigFrame } from "./simRigFrame";
 
+type MainStrategyKey = 1 | 2 | 3 | 4 | 5;
+
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
 const TELEMETRY_BUFFER_SIZE = 300;
@@ -60,6 +62,7 @@ export default function SimPage() {
   const [telemetryHipOffset, setTelemetryHipOffset] = useState(0);
   const [telemetryFrames, setTelemetryFrames] = useState<TelemetryFrame[]>([]);
   const [strategyKey, setStrategyKey] = useState<StrategyKey>(1);
+  const [mainStrategyKey, setMainStrategyKey] = useState<MainStrategyKey>(1);
   const [activeAction, setActiveAction] = useState<SimActionButtonAction>(DEFAULT_SIM_SESSION_CONFIG.action);
   const [activeActionStartedAtS, setActiveActionStartedAtS] = useState(0);
   const [simSeed, setSimSeed] = useState(DEFAULT_SIM_SESSION_CONFIG.seed);
@@ -144,16 +147,25 @@ export default function SimPage() {
 
   const updateStrategyKey = (key: StrategyKey) => {
     setStrategyKey(key);
+
+    if (key === 1 || key === 2 || key === 3 || key === 4 || key === 5) {
+      setMainStrategyKey(key);
+    }
+
     sessionRef.current?.setStrategyLevel(key);
   };
 
   const updateAction = (action: SimActionButtonAction) => {
+    const nextStrategyKey = mainStrategyKey;
+
     setLeftHipDeg(0);
     setRightHipDeg(0);
     setPassiveJoints(DEFAULT_PASSIVE_JOINTS);
+    setStrategyKey(nextStrategyKey);
     setActiveAction(action);
     setActiveActionStartedAtS(latestTelemetryFrame?.t ?? 0);
     setSimDurationS(null);
+    sessionRef.current?.setStrategyLevel(nextStrategyKey);
     sessionRef.current?.setAction(action);
   };
 
@@ -231,7 +243,11 @@ export default function SimPage() {
 
               <BadDemoButton onApply={applyBadDemoPreset} />
 
-              <StrategyLevelSelect onChange={updateStrategyKey} value={strategyKey} />
+              <StrategyLevelSelect
+                isAdversarialActive={strategyKey === "bad_phase"}
+                onChange={updateStrategyKey}
+                value={mainStrategyKey}
+              />
 
               <p className="text-xs text-slate-500" data-testid="sim-config-summary">
                 Seed {simSeed} / Duration {simDurationS === null ? "continuous" : `${simDurationS}s`}

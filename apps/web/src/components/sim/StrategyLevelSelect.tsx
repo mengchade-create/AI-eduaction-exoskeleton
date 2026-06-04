@@ -4,11 +4,12 @@ import type { StrategyKey } from "../../simulation/strategies/Strategy";
 import { ADVERSARIAL_STRATEGY_OPTION, parseStrategyKey, STRATEGY_OPTIONS } from "./strategyLevelOptions";
 
 export interface StrategyLevelSelectProps {
+  isAdversarialActive?: boolean;
   value: StrategyKey;
   onChange: (key: StrategyKey) => void;
 }
 
-export default function StrategyLevelSelect({ value, onChange }: StrategyLevelSelectProps) {
+export default function StrategyLevelSelect({ isAdversarialActive = false, value, onChange }: StrategyLevelSelectProps) {
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     onChange(parseStrategyKey(event.currentTarget.value));
   };
@@ -32,13 +33,17 @@ export default function StrategyLevelSelect({ value, onChange }: StrategyLevelSe
           ))}
         </select>
       </label>
-      <button
-        className="text-left text-xs font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-red-700"
-        onClick={() => onChange(ADVERSARIAL_STRATEGY_OPTION.key)}
-        type="button"
-      >
-        {ADVERSARIAL_STRATEGY_OPTION.label}
-      </button>
+      {isAdversarialActive ? (
+        <p className="text-xs font-semibold text-red-700">{ADVERSARIAL_STRATEGY_OPTION.label}</p>
+      ) : (
+        <button
+          className="text-left text-xs font-medium text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-red-700"
+          onClick={() => onChange(ADVERSARIAL_STRATEGY_OPTION.key)}
+          type="button"
+        >
+          Use bad_phase demo
+        </button>
+      )}
     </div>
   );
 }

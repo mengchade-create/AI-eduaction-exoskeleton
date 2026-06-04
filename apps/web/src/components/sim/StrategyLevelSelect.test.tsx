@@ -63,7 +63,8 @@ describe("StrategyLevelSelect", () => {
     for (const option of STRATEGY_OPTIONS) {
       expect(markup).toContain(option.label);
     }
-    expect(markup).toContain(ADVERSARIAL_STRATEGY_OPTION.label);
+    expect(markup).toContain("Use bad_phase demo");
+    expect(markup).not.toContain(ADVERSARIAL_STRATEGY_OPTION.label);
     expect(markup).toContain('value="1" selected=""');
   });
 
@@ -84,13 +85,23 @@ describe("StrategyLevelSelect", () => {
     const onChange = vi.fn();
     const element = StrategyLevelSelect({ onChange, value: 1 });
     const buttons = collectElementsByType(element, "button");
-    const button = buttons.find((candidate) => candidate.props.children === ADVERSARIAL_STRATEGY_OPTION.label);
+    const button = buttons.find((candidate) => candidate.props.children === "Use bad_phase demo");
     const props = button?.props as { onClick: () => void };
 
     expect(button).toBeDefined();
     props.onClick();
 
     expect(onChange).toHaveBeenCalledWith("bad_phase");
+  });
+
+  it("shows the adversarial status text only while bad_phase is active", () => {
+    const activeMarkup = renderToStaticMarkup(
+      <StrategyLevelSelect isAdversarialActive onChange={() => undefined} value={1} />,
+    );
+    const inactiveMarkup = renderToStaticMarkup(<StrategyLevelSelect onChange={() => undefined} value={1} />);
+
+    expect(activeMarkup).toContain(ADVERSARIAL_STRATEGY_OPTION.label);
+    expect(inactiveMarkup).not.toContain(ADVERSARIAL_STRATEGY_OPTION.label);
   });
 
   it("falls back to level 1 for invalid values", () => {
